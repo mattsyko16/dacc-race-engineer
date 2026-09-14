@@ -55,7 +55,7 @@ select{min-width:120px} input.small{width:72px}
 .log{height:115px;overflow:auto;background:#0e1218;border:1px solid var(--line);border-radius:8px;padding:8px;color:#bac4d3;font-size:12px}
 .totalstable table{min-width:0}.totalstable td,.totalstable th{padding:6px}
 .warning{padding:8px 10px;border-radius:8px;background:#332b17;color:#ffdb7c;border:1px solid #5a491f;margin-top:8px}.syncrow{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.sessioncode{font-size:20px;font-weight:900;letter-spacing:.12em}.goodtext{color:var(--good)}.badtext{color:var(--bad)}
-.hidden{display:none}
+.hidden{display:none}.modalback{position:fixed;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;z-index:9999;padding:18px}.modalbox{width:min(480px,100%);background:#151b25;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px}.modalbox h3{margin:0 0 8px;font-size:18px}.modalbox p{color:#cbd5e5}.modalbox input{width:100%;margin:8px 0 12px}.toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#17202c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);max-width:360px}
 textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:8px;padding:8px;resize:vertical}
 footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 </style>
@@ -196,7 +196,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V3 • shared live session • viewer mode • controller-protected edits • live timing.</footer>
+  <footer>Race-control V3.1 • Discord-safe controls • shared live session • 2-second live sync • controller-protected edits.</footer>
 </div>
 
 <script type="module">
@@ -247,6 +247,17 @@ function migrateRuntime(){
   if(!Number.isFinite(r.totalPausedMs)) r.totalPausedMs=0;
   if(!Number.isFinite(r.pausedAtMs)) r.pausedAtMs=null;
   if(!Number.isFinite(r.manualElapsedSec)) r.manualElapsedSec=Number.isFinite(r.elapsedRaceSec)?r.elapsedRaceSec:0;
+  // PRE-RACE must always start from stint 1. Old test state from a previous build
+  // should never make the planner look as though the race is already on stint 2+.
+  if(r.status==='PRE-RACE'){
+    r.currentIndex=0;
+    r.startedAtMs=null;
+    r.startClockSec=null;
+    r.totalPausedMs=0;
+    r.pausedAtMs=null;
+    r.manualElapsedSec=0;
+    r.actualStints=[];
+  }
 }
 migrateRuntime();
 
@@ -272,6 +283,23 @@ function setSyncStatus(status){
   el.textContent=status;
   el.style.color=status==='LIVE'?'var(--good)':status==='OFFLINE'||status==='ERROR'?'var(--bad)':status==='CONNECTING'||status==='RECONNECTING'?'var(--warn)':'var(--muted)';
 }
+function toast(msg, ms=3200){
+  const el=$('#toast'); el.textContent=msg; el.classList.remove('hidden');
+  clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.add('hidden'),ms);
+}
+function modalAsk({title='Confirm',text='',input=false,value='',ok='OK',cancel='Cancel'}={}){
+  return new Promise(resolve=>{
+    const back=$('#modalBack'), inp=$('#modalInput');
+    $('#modalTitle').textContent=title; $('#modalText').textContent=text;
+    $('#modalOk').textContent=ok; $('#modalCancel').textContent=cancel;
+    inp.classList.toggle('hidden',!input); inp.value=value||'';
+    back.classList.remove('hidden');
+    const finish=v=>{back.classList.add('hidden'); $('#modalOk').onclick=null; $('#modalCancel').onclick=null; resolve(v)};
+    $('#modalOk').onclick=()=>finish(input?inp.value:true);
+    $('#modalCancel').onclick=()=>finish(input?null:false);
+    if(input) setTimeout(()=>{inp.focus();inp.select()},30);
+  });
+}
 function renderSharedMeta(){
   $('#sharedCode').textContent=shared.code||'LOCAL';
   $('#roleBadge').textContent=canEdit()?'RACE CONTROL':'VIEW ONLY';
@@ -285,6 +313,11 @@ function renderSharedMeta(){
   $('#joinActiveBtn').disabled=!!shared.code || !shared.supabase;
   $('#joinCodeBtn').disabled=!!shared.code || !shared.supabase;
   $('#unlockControlBtn').disabled=!shared.code || shared.isController || !shared.supabase;
+  $('#sharedHelp').textContent = !shared.code
+    ? 'Create one shared race, then everyone else can launch the Activity and choose Join Active Race.'
+    : shared.isController
+      ? 'RACE CONTROL — your changes are shared with every viewer.'
+      : 'VIEW ONLY — live race status is shared. Enter the Race Control key and click Unlock Race Control to take control on this device.';
 }
 function addLog(msg, sync=true){
   const entry={ts:new Date().toISOString(),msg};
@@ -307,24 +340,6 @@ function commitState(){
     clearTimeout(shared.pushTimer);
     shared.pushTimer=setTimeout(pushSharedState,180);
   }
-}
-async function pushSharedState(){
-  if(!shared.supabase||!shared.code||!shared.isController) return;
-  setSyncStatus('CONNECTING');
-  const {data,error}=await shared.supabase.rpc('dacc_update_race_state',{
-    p_code:shared.code,
-    p_control_key:shared.controlKey,
-    p_state:state
-  });
-  if(error){
-    console.error(error);
-    setSyncStatus('OFFLINE');
-    return;
-  }
-  const row=Array.isArray(data)?data[0]:data;
-  shared.lastUpdated=row?.updated_at||new Date().toISOString();
-  setSyncStatus('LIVE');
-  renderSharedMeta();
 }
 function applyRemote(remoteState,updatedAt){
   if(!remoteState) return;
@@ -391,7 +406,7 @@ function livePhase(sch){
 }
 
 function render(){
-  const sch=schedule(),e=state.event,cur=Math.min(state.runtime.currentIndex,Math.max(0,sch.length-1));
+  const sch=schedule(),e=state.event,cur=state.runtime.status==='PRE-RACE'?0:Math.min(state.runtime.currentIndex,Math.max(0,sch.length-1));
   const elapsed=elapsedRaceSec(),phase=livePhase(sch),edit=canEdit();
   $('#eventTitle').textContent=`${e.name} • ${e.track}`;
   if(document.activeElement!==$('#irlStart')) $('#irlStart').value=e.irlStart;
@@ -507,9 +522,10 @@ function parseVoice(text){
   $('#voiceText').textContent=`Heard: “${text}” — command not recognised.`;
 }
 
-function startRace(){
+async function startRace(){
   if(!canEdit()||state.runtime.status!=='PRE-RACE')return;
-  if(!confirm('Start the 24 hour race clock now? This records the actual IRL start time for everyone.'))return;
+  const ok=await modalAsk({title:'Start race?',text:'Start the 24 hour race clock now? This records the actual IRL start time for everyone.',ok:'START RACE'});
+  if(!ok)return;
   state.runtime.status='LIVE';state.runtime.currentIndex=0;state.runtime.startedAtMs=Date.now();
   state.runtime.startClockSec=localClockSecNow();state.runtime.totalPausedMs=0;state.runtime.pausedAtMs=null;
   state.runtime.manualElapsedSec=0;state.runtime.actualStints=[{startElapsed:0}];
@@ -547,50 +563,81 @@ function delaySchedule(mins){
   commitState();render()
 }
 
+async function supa(path,{method='GET',body=null,prefer=null}={}){
+  const base=String(cfg.supabaseUrl||'').replace(/\/+$/,'');
+  const key=String(cfg.supabaseAnonKey||cfg.supabasePublishableKey||'').trim();
+  if(!base||!key) throw new Error('Supabase is not configured');
+  const headers={'apikey':key,'Content-Type':'application/json'};
+  if(prefer) headers['Prefer']=prefer;
+  const res=await fetch(`${base}/rest/v1/${path}`,{
+    method,headers,body:body==null?undefined:JSON.stringify(body),cache:'no-store'
+  });
+  const text=await res.text();
+  let data=null;
+  if(text){try{data=JSON.parse(text)}catch{data=text}}
+  if(!res.ok) throw new Error(data?.message||data?.hint||text||`HTTP ${res.status}`);
+  return data;
+}
 async function verifyController(code,key){
   if(!shared.supabase||!code||!key)return false;
-  const {data,error}=await shared.supabase.rpc('dacc_verify_race_control',{p_code:code,p_control_key:key});
-  return !error&&data===true;
+  try{
+    const data=await supa('rpc/dacc_verify_race_control',{
+      method:'POST',body:{p_code:code,p_control_key:key}
+    });
+    return data===true;
+  }catch(err){console.error(err);return false}
 }
 async function unsubscribeShared(){
-  if(shared.channel&&shared.supabase) await shared.supabase.removeChannel(shared.channel);
   shared.channel=null;
 }
+async function pollShared(){
+  if(!shared.supabase||!shared.code)return;
+  try{
+    const code=encodeURIComponent(shared.code);
+    const data=await supa(`dacc_race_sessions?select=code,state,updated_at&code=eq.${code}&is_active=eq.true&limit=1`);
+    const row=Array.isArray(data)?data[0]:null;
+    if(!row){setSyncStatus('OFFLINE');return}
+    if(!shared.lastUpdated || row.updated_at!==shared.lastUpdated){
+      applyRemote(row.state,row.updated_at);
+    }
+    setSyncStatus('LIVE');
+  }catch(err){console.error(err);setSyncStatus('RECONNECTING')}
+}
 async function subscribeShared(){
-  await unsubscribeShared();
-  shared.channel=shared.supabase.channel(`dacc-race-${shared.code}`)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'dacc_race_sessions',filter:`code=eq.${shared.code}`},payload=>{
-      applyRemote(payload.new.state,payload.new.updated_at);setSyncStatus('LIVE');
-    })
-    .subscribe(status=>{
-      if(status==='SUBSCRIBED')setSyncStatus('LIVE');
-      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncStatus('RECONNECTING');
-      else if(status==='CLOSED'&&shared.code)setSyncStatus('OFFLINE');
-    });
+  setSyncStatus('LIVE');
+  clearInterval(shared.channel);
+  shared.channel=setInterval(pollShared,2000);
 }
 async function joinSession(code){
-  if(!shared.supabase)return alert('Supabase is not configured yet.');
+  if(!shared.supabase){toast('Supabase is not configured yet.');return}
   code=String(code||'').trim().toUpperCase();
   if(!code)return;
   setSyncStatus('CONNECTING');
-  const {data,error}=await shared.supabase.from('dacc_race_sessions').select('code,state,updated_at').eq('code',code).eq('is_active',true).maybeSingle();
-  if(error||!data){setSyncStatus('OFFLINE');return alert('Active race session not found.')}
-  shared.code=data.code;localStorage.setItem('dacc-session-code',shared.code);
-  const stored=localStorage.getItem(`dacc-control-key:${shared.code}`)||'';
-  shared.controlKey=stored;
-  shared.isController=stored?await verifyController(shared.code,stored):false;
-  if(!shared.isController)shared.controlKey='';
-  applyRemote(data.state,data.updated_at);
-  await subscribeShared();
-  render();
+  try{
+    const enc=encodeURIComponent(code);
+    const data=await supa(`dacc_race_sessions?select=code,state,updated_at&code=eq.${enc}&is_active=eq.true&limit=1`);
+    const row=Array.isArray(data)?data[0]:null;
+    if(!row){setSyncStatus('OFFLINE');toast('Active race session not found.');return}
+    shared.code=row.code;localStorage.setItem('dacc-session-code',shared.code);
+    const stored=localStorage.getItem(`dacc-control-key:${shared.code}`)||'';
+    shared.controlKey=stored;
+    shared.isController=stored?await verifyController(shared.code,stored):false;
+    if(!shared.isController)shared.controlKey='';
+    applyRemote(row.state,row.updated_at);
+    await subscribeShared();
+    render();
+  }catch(err){console.error(err);setSyncStatus('OFFLINE');toast(`Could not join race: ${err.message}`)}
 }
 async function joinActive(){
-  if(!shared.supabase)return alert('Supabase is not configured yet.');
+  if(!shared.supabase){toast('Supabase is not configured yet.');return}
   setSyncStatus('CONNECTING');
-  const eventKey=cfg.eventKey||'dacc-race';
-  const {data,error}=await shared.supabase.from('dacc_race_sessions').select('code').eq('event_key',eventKey).eq('is_active',true).order('created_at',{ascending:false}).limit(1).maybeSingle();
-  if(error||!data){setSyncStatus('LOCAL');return alert('No active DACC race session yet. Race Control needs to create one first.')}
-  await joinSession(data.code);
+  try{
+    const eventKey=encodeURIComponent(cfg.eventKey||'dacc-race');
+    const data=await supa(`dacc_race_sessions?select=code&event_key=eq.${eventKey}&is_active=eq.true&order=created_at.desc&limit=1`);
+    const row=Array.isArray(data)?data[0]:null;
+    if(!row){setSyncStatus('LOCAL');return}
+    await joinSession(row.code);
+  }catch(err){console.error(err);setSyncStatus('LOCAL')}
 }
 function randomKey(len=14){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -598,25 +645,35 @@ function randomKey(len=14){
   return [...a].map(n=>chars[n%chars.length]).join('');
 }
 async function createSharedSession(){
-  if(!shared.supabase)return alert('Supabase is not configured yet.');
+  if(!shared.supabase){toast('Supabase is not configured yet.');return}
   const key=randomKey(14),eventKey=cfg.eventKey||'dacc-race';
   setSyncStatus('CONNECTING');
-  const {data,error}=await shared.supabase.rpc('dacc_create_race_session',{p_state:state,p_control_key:key,p_event_key:eventKey});
-  if(error){console.error(error);setSyncStatus('ERROR');return alert(`Could not create session: ${error.message}`)}
-  const row=Array.isArray(data)?data[0]:data;
-  shared.code=row.code;shared.controlKey=key;shared.isController=true;
-  localStorage.setItem('dacc-session-code',shared.code);localStorage.setItem(`dacc-control-key:${shared.code}`,key);
-  $('#controlKeyInput').value=key;
-  shared.lastUpdated=new Date().toISOString();
-  await subscribeShared();setSyncStatus('LIVE');render();
-  alert(`Shared race created.\n\nSession: ${shared.code}\nRace Control key: ${key}\n\nKeep the Race Control key private. Everyone else can use Join Active Race.`);
+  try{
+    const data=await supa('rpc/dacc_create_race_session',{
+      method:'POST',body:{p_state:state,p_control_key:key,p_event_key:eventKey}
+    });
+    const row=Array.isArray(data)?data[0]:data;
+    shared.code=row.code;shared.controlKey=key;shared.isController=true;
+    localStorage.setItem('dacc-session-code',shared.code);
+    localStorage.setItem(`dacc-control-key:${shared.code}`,key);
+    $('#controlKeyInput').value=key;
+    shared.lastUpdated=new Date().toISOString();
+    await subscribeShared();setSyncStatus('LIVE');render();
+    await modalAsk({
+      title:'Shared race created',
+      text:`Session ${shared.code}. Race Control key: ${key}. Keep this key private. Other drivers can use Join Active Race.`,
+      ok:'Got it',cancel:'Close'
+    });
+  }catch(err){console.error(err);setSyncStatus('ERROR');toast(`Could not create session: ${err.message}`,5000)}
 }
 async function unlockControl(){
   const key=$('#controlKeyInput').value.trim();
   if(!shared.code||!key)return;
   if(await verifyController(shared.code,key)){
-    shared.controlKey=key;shared.isController=true;localStorage.setItem(`dacc-control-key:${shared.code}`,key);render();
-  }else alert('Race Control key not recognised.');
+    shared.controlKey=key;shared.isController=true;
+    localStorage.setItem(`dacc-control-key:${shared.code}`,key);
+    toast('Race Control unlocked on this device.');render();
+  }else toast('Race Control key not recognised.');
 }
 async function leaveSession(){
   await unsubscribeShared();shared.code=null;shared.controlKey=null;shared.isController=false;shared.lastUpdated=null;
@@ -625,21 +682,30 @@ async function leaveSession(){
 async function copyViewerLink(){
   if(!shared.code)return;
   const u=new URL(location.href);u.searchParams.set('session',shared.code);
-  await navigator.clipboard.writeText(u.toString());
-  $('#copySessionBtn').textContent='Copied ✓';setTimeout(()=>$('#copySessionBtn').textContent='Copy Viewer Link',900);
+  try{await navigator.clipboard.writeText(u.toString());toast('Viewer link copied.')}
+  catch{toast(`Session code: ${shared.code}`)}
 }
 async function initShared(){
   const url=String(cfg.supabaseUrl||'').trim(),key=String(cfg.supabaseAnonKey||cfg.supabasePublishableKey||'').trim();
   if(!url||!key){setSyncStatus('LOCAL');renderSharedMeta();return}
+  shared.supabase=true;
+  const param=new URLSearchParams(location.search).get('session');
+  if(param){await joinSession(param);return}
+  const saved=localStorage.getItem('dacc-session-code');
+  if(saved){await joinSession(saved);return}
+  if(cfg.autoJoinLatest!==false) await joinActive();
+}
+async function pushSharedState(){
+  if(!shared.supabase||!shared.code||!shared.isController)return;
+  setSyncStatus('CONNECTING');
   try{
-    const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
-    shared.supabase=createClient(url,key,{auth:{persistSession:false}});
-    const param=new URLSearchParams(location.search).get('session');
-    if(param){await joinSession(param);return}
-    const saved=localStorage.getItem('dacc-session-code');
-    if(saved){await joinSession(saved);return}
-    if(cfg.autoJoinLatest!==false) await joinActive();
-  }catch(err){console.error(err);setSyncStatus('OFFLINE')}
+    const data=await supa('rpc/dacc_update_race_state',{
+      method:'POST',body:{p_code:shared.code,p_control_key:shared.controlKey,p_state:state}
+    });
+    const row=Array.isArray(data)?data[0]:data;
+    shared.lastUpdated=row?.updated_at||new Date().toISOString();
+    setSyncStatus('LIVE');renderSharedMeta();
+  }catch(err){console.error(err);setSyncStatus('OFFLINE');toast(`Sync failed: ${err.message}`,4500)}
 }
 
 $('#calcFuelBtn').onclick=calculateFuel;
@@ -649,9 +715,9 @@ $('#plusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.cu
 $('#minusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.currentIndex].laps=Math.max(1,state.stints[state.runtime.currentIndex].laps-1);addLog('-1 lap current stint',false);commitState();render()};
 $('#advanceBtn').onclick=()=>{if(!canEdit())return;if(state.runtime.status==='LIVE'){pitNow();return}state.runtime.currentIndex=Math.min(state.stints.length-1,state.runtime.currentIndex+1);addLog(`Advanced to stint ${state.runtime.currentIndex+1}`,false);commitState();render()};
 $('#pitNowBtn').onclick=pitNow;
-$('#delayBtn').onclick=()=>{if(!canEdit())return;const mins=parseFloat(prompt('Delay current/downstream schedule by how many minutes?','3'));if(Number.isFinite(mins))delaySchedule(mins)};
+$('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay current/downstream schedule by how many minutes?',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
 $('#startRaceBtn').onclick=startRace;$('#pauseRaceBtn').onclick=pauseResume;
-$('#resetBtn').onclick=()=>{if(!canEdit())return;if(confirm('Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.')){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[]};commitState();render()}};
+$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[]};commitState();render()}};
 $('#recalcBtn').onclick=()=>{if(!canEdit())return;state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;addLog('Schedule recalculated',false);commitState();render()};
 $('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
 $('#exportBtn').onclick=()=>{saveLocal();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dacc-race-state.json';a.click();URL.revokeObjectURL(a.href)};
@@ -689,5 +755,19 @@ async function initDiscord(){
 
 initCalcInputs();render();calculateFuel();initDiscord();await initShared();render();
 </script>
+
+<div id="modalBack" class="modalback hidden">
+  <div class="modalbox">
+    <h3 id="modalTitle">Confirm</h3>
+    <p id="modalText"></p>
+    <input id="modalInput" class="hidden" type="text"/>
+    <div class="toolbar" style="margin-bottom:0">
+      <button id="modalCancel">Cancel</button>
+      <button class="primary" id="modalOk">OK</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast hidden"></div>
+
 </body>
 </html>
