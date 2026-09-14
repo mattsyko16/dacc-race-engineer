@@ -65,7 +65,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V3.4</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V3.5</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <div class="kpi"><div class="label">Server clock</div><div class="value" id="serverClock">--:--:--</div></div>
             <div class="kpi"><div class="label">IRL projected finish</div><div class="value" id="plannedFinish">--:--</div></div>
             <div class="kpi"><div class="label">Current stint</div><div class="value" id="currentStintNo">1</div></div>
-            <div class="kpi"><div class="label">Projected laps</div><div class="value" id="projectedLaps">0</div></div>
+            <div class="kpi"><div class="label">Projected laps / stints</div><div class="value"><span id="projectedLaps">0</span> <span style="font-size:13px;color:var(--muted)" id="projectedStints"></span></div></div>
           </div>
 
           <div class="drivercards">
@@ -95,6 +95,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="minusLapBtn">−1 lap current</button>
             <button class="warn" id="delayBtn">Delay downstream</button>
             <button id="advanceBtn">Advance stint</button>
+            <button id="addStintBtn">+ Add stint</button>
             <button id="resetBtn">Reset race state</button>
           </div>
           <div id="liveBanner" class="warning hidden"></div>
@@ -196,7 +197,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V3.4 • live future-stint reordering • shared live session • Discord Supabase proxy.</footer>
+  <footer>Race-control V3.5 • add/remove/reorder future stints • shared live session • Discord Supabase proxy.</footer>
 </div>
 
 <script type="module">
@@ -423,7 +424,7 @@ function render(){
   $('#serverClock').textContent=secToClock(timeToSec(e.serverStart)+elapsed);
   $('#plannedFinish').textContent=secToClock(sch.at(-1)?.finish||0);
   $('#currentStintNo').textContent=phase==='PIT / CHANGEOVER'?`PIT→${cur+1}`:(cur+1);
-  $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0);
+  $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0); $('#projectedStints').textContent=`(${state.stints.length})`;
 
   const startBtn=$('#startRaceBtn'),pauseBtn=$('#pauseRaceBtn'),pitBtn=$('#pitNowBtn');
   startBtn.disabled=!edit||state.runtime.status!=='PRE-RACE';
@@ -431,7 +432,7 @@ function render(){
   pauseBtn.disabled=!edit||!['LIVE','PAUSED'].includes(state.runtime.status);
   pauseBtn.textContent=state.runtime.status==='PAUSED'?'RESUME':'PAUSE';
   pitBtn.disabled=!edit||state.runtime.status!=='LIVE'||phase==='PIT / CHANGEOVER';
-  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','advanceBtn','resetBtn','recalcBtn','saveBtn']){
+  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','advanceBtn','addStintBtn','resetBtn','recalcBtn','saveBtn']){
     $( '#'+id ).disabled=!edit;
   }
   $('#importFile').disabled=!edit;
@@ -544,6 +545,62 @@ function parseVoice(text){
   m=t.match(/delay.*?(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/);if(m){delaySchedule(+m[1]);return}
   if(t.includes('next driver')){const r=schedule()[state.runtime.currentIndex+1];$('#voiceText').textContent=r?`Next: ${label(r.driver)}, ${r.laps} laps, ${secToClock(r.start)}`:'No next stint';return}
   $('#voiceText').textContent=`Heard: “${text}” — command not recognised.`;
+}
+
+
+async function addStint(){
+  if(!canEdit()) return;
+
+  const cur=state.runtime.currentIndex;
+  const defaultDriver = state.stints.length
+    ? state.stints[Math.min(state.stints.length-1, Math.max(cur+1,0))].driver
+    : (state.drivers[0]?.id||'');
+  const defaultLaps = state.stints.length
+    ? state.stints[Math.min(state.stints.length-1, Math.max(cur+1,0))].laps
+    : 52;
+
+  const driverNames=state.drivers.map(d=>d.label).join(', ');
+  const driverInput=await modalAsk({
+    title:'Add stint',
+    text:`Enter driver name or username. Available: ${driverNames}`,
+    input:true,
+    value:label(defaultDriver),
+    ok:'Next'
+  });
+  if(driverInput===null) return;
+
+  const wanted=String(driverInput).trim().toLowerCase();
+  const driver=state.drivers.find(d=>
+    d.id.toLowerCase()===wanted || d.label.toLowerCase()===wanted
+  );
+  if(!driver){
+    toast('Driver not recognised. Use one of the listed driver names.');
+    return;
+  }
+
+  const lapsInput=await modalAsk({
+    title:'Add stint',
+    text:'Target laps for the new stint:',
+    input:true,
+    value:String(defaultLaps),
+    ok:'Add stint'
+  });
+  if(lapsInput===null) return;
+
+  const laps=Math.max(1,Math.round(Number(lapsInput)));
+  if(!Number.isFinite(laps)){
+    toast('Enter a valid lap count.');
+    return;
+  }
+
+  // PRE-RACE: append to the end of the plan.
+  // LIVE/PAUSED/PIT: add to the end of the FUTURE plan only.
+  state.stints.push({driver:driver.id,laps});
+
+  addLog(`Added stint ${state.stints.length}: ${driver.label}, ${laps} laps`,false);
+  commitState();
+  render();
+  toast(`Stint ${state.stints.length} added. Use ↑ / ↓ to move it into position.`);
 }
 
 async function startRace(){
@@ -759,7 +816,7 @@ $('#minusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.c
 $('#advanceBtn').onclick=()=>{if(!canEdit())return;if(state.runtime.status==='LIVE'){pitNow();return}state.runtime.currentIndex=Math.min(state.stints.length-1,state.runtime.currentIndex+1);addLog(`Advanced to stint ${state.runtime.currentIndex+1}`,false);commitState();render()};
 $('#pitNowBtn').onclick=pitNow;
 $('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay current/downstream schedule by how many minutes?',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
-$('#startRaceBtn').onclick=startRace;$('#pauseRaceBtn').onclick=pauseResume;
+$('#startRaceBtn').onclick=startRace;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[]};commitState();render()}};
 $('#recalcBtn').onclick=()=>{if(!canEdit())return;state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;addLog('Schedule recalculated',false);commitState();render()};
 $('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
