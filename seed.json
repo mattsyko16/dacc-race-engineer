@@ -1,0 +1,166 @@
+{
+  "event": {
+    "name": "Round 9 \u2014 Zolder 24H",
+    "track": "Zolder",
+    "raceHours": 24,
+    "irlStart": "10:00",
+    "serverStart": "10:00",
+    "avgLapSec": 90.8,
+    "pitLossSec": 70,
+    "fuelPerLap": 2.2,
+    "tankLitres": 120,
+    "fuelMarginLaps": 2
+  },
+  "drivers": [
+    {
+      "id": "mattsyko16",
+      "label": "Matt",
+      "availability": [
+        [
+          "10:00",
+          "10:00"
+        ]
+      ]
+    },
+    {
+      "id": "rs-b1nko",
+      "label": "Binko",
+      "availability": [
+        [
+          "10:00",
+          "14:00"
+        ],
+        [
+          "03:00",
+          "08:00"
+        ]
+      ]
+    },
+    {
+      "id": "alexedwardjohnson",
+      "label": "Alex",
+      "availability": [
+        [
+          "14:00",
+          "02:00"
+        ]
+      ]
+    },
+    {
+      "id": "alohy1",
+      "label": "Andy",
+      "availability": [
+        [
+          "14:00",
+          "16:00"
+        ],
+        [
+          "21:00",
+          "08:00"
+        ]
+      ]
+    },
+    {
+      "id": "homesick-alien77",
+      "label": "Homesick",
+      "availability": [
+        [
+          "16:00",
+          "03:00"
+        ]
+      ]
+    },
+    {
+      "id": "Stu3000_",
+      "label": "Stu",
+      "availability": [
+        [
+          "19:00",
+          "00:00"
+        ],
+        [
+          "07:00",
+          "10:00"
+        ]
+      ]
+    }
+  ],
+  "stints": [
+    {
+      "driver": "mattsyko16",
+      "laps": 52
+    },
+    {
+      "driver": "rs-b1nko",
+      "laps": 35
+    },
+    {
+      "driver": "rs-b1nko",
+      "laps": 35
+    },
+    {
+      "driver": "rs-b1nko",
+      "laps": 35
+    },
+    {
+      "driver": "alexedwardjohnson",
+      "laps": 52
+    },
+    {
+      "driver": "alexedwardjohnson",
+      "laps": 53
+    },
+    {
+      "driver": "homesick-alien77",
+      "laps": 53
+    },
+    {
+      "driver": "Stu3000_",
+      "laps": 53
+    },
+    {
+      "driver": "Stu3000_",
+      "laps": 52
+    },
+    {
+      "driver": "homesick-alien77",
+      "laps": 53
+    },
+    {
+      "driver": "alohy1",
+      "laps": 53
+    },
+    {
+      "driver": "alexedwardjohnson",
+      "laps": 52
+    },
+    {
+      "driver": "homesick-alien77",
+      "laps": 53
+    },
+    {
+      "driver": "alohy1",
+      "laps": 53
+    },
+    {
+      "driver": "rs-b1nko",
+      "laps": 53
+    },
+    {
+      "driver": "alohy1",
+      "laps": 52
+    },
+    {
+      "driver": "alohy1",
+      "laps": 52
+    },
+    {
+      "driver": "mattsyko16",
+      "laps": 52
+    },
+    {
+      "driver": "Stu3000_",
+      "laps": 53
+    }
+  ]
+}

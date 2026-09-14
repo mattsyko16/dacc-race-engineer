@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>DACC Race Engineer</title>
+<style>
+:root{
+  --bg:#0b0e13;--panel:#141922;--panel2:#1a2130;--line:#2b3445;
+  --text:#f4f6fb;--muted:#9aa6ba;--good:#31c48d;--warn:#f8c555;--bad:#f26d6d;
+  --accent:#7ea7ff;--accent2:#a880ff;--shadow:0 8px 28px rgba(0,0,0,.28)
+}
+*{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#090c11,#10151e);
+font:14px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}
+button,input,select,textarea{font:inherit}
+.shell{max-width:1500px;margin:0 auto;padding:14px}
+.topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.brand{display:flex;align-items:center;gap:10px}.logo{width:40px;height:40px;border-radius:10px;
+background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:900;color:#08101d}
+h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
+.badge{padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:#111720}
+.grid{display:grid;grid-template-columns:1.45fr .8fr;gap:12px}
+@media(max-width:1050px){.grid{grid-template-columns:1fr}}
+.card{background:rgba(20,25,34,.96);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.card h2{font-size:13px;letter-spacing:.05em;text-transform:uppercase;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);color:#dfe6f3}
+.cardbody{padding:12px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px}
+.kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi .value{font-size:22px;font-weight:800;margin-top:4px}
+.drivercards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+@media(max-width:760px){.drivercards{grid-template-columns:1fr}}
+.drivercard{background:linear-gradient(180deg,#1a2230,#151b25);border:1px solid var(--line);border-radius:11px;padding:11px}
+.drivercard.active{outline:2px solid var(--accent)} .drivercard .role{color:var(--muted);font-size:11px;text-transform:uppercase}
+.drivercard .name{font-size:20px;font-weight:800;margin:3px 0}.drivercard .meta{color:#cbd5e5;font-size:12px}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+button{border:1px solid var(--line);background:#1b2330;color:var(--text);padding:8px 10px;border-radius:9px;cursor:pointer}
+button:hover{border-color:#53617a;background:#222c3b} button.primary{background:#315ecf;border-color:#4777e8}
+button.good{background:#176847;border-color:#248d62} button.warn{background:#6d5217;border-color:#9b7621}
+button.bad{background:#6d2828;border-color:#a43c3c}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:11px}
+table{border-collapse:collapse;width:100%;min-width:860px} th,td{padding:7px 8px;border-bottom:1px solid #252d3b;text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:#171d27;color:#aab5c6;font-size:11px;text-transform:uppercase;z-index:1}
+tr.active-row{background:#1b2b47} tr.warn-row{background:#3a3019} tr.bad-row{background:#412525}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+select,input[type=number],input[type=time],input[type=text]{background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:7px;padding:6px}
+select{min-width:120px} input.small{width:72px}
+.rowbtns{display:flex;gap:4px}.rowbtns button{padding:4px 7px;font-size:12px}
+.sidegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;color:var(--muted)}.field input{width:100%}
+.fuelresult{background:#101a16;border:1px solid #264b3b;border-radius:10px;padding:12px;margin-top:10px}
+.fuelresult .big{font-size:28px;font-weight:900;color:#6ee7b7}
+.voice{display:flex;align-items:center;gap:8px;margin-top:10px}.voice button.listening{animation:pulse 1s infinite;background:#7b2d2d}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(242,109,109,.08)}}
+.log{height:115px;overflow:auto;background:#0e1218;border:1px solid var(--line);border-radius:8px;padding:8px;color:#bac4d3;font-size:12px}
+.totalstable table{min-width:0}.totalstable td,.totalstable th{padding:6px}
+.warning{padding:8px 10px;border-radius:8px;background:#332b17;color:#ffdb7c;border:1px solid #5a491f;margin-top:8px}
+.hidden{display:none}
+textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:8px;padding:8px;resize:vertical}
+footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
+</style>
+</head>
+<body>
+<script src="./config.js"></script>
+<div class="shell">
+  <div class="topbar">
+    <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge" id="modeBadge">Standalone</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+  </div>
+
+  <div class="grid">
+    <main>
+      <section class="card">
+        <h2>Race Control</h2>
+        <div class="cardbody">
+          <div class="kpis">
+            <div class="kpi"><div class="label">Race remaining</div><div class="value" id="raceRemaining">--:--:--</div></div>
+            <div class="kpi"><div class="label">Server clock</div><div class="value" id="serverClock">--:--:--</div></div>
+            <div class="kpi"><div class="label">IRL planned finish</div><div class="value" id="plannedFinish">--:--</div></div>
+            <div class="kpi"><div class="label">Current stint</div><div class="value" id="currentStintNo">1</div></div>
+            <div class="kpi"><div class="label">Projected laps</div><div class="value" id="projectedLaps">0</div></div>
+          </div>
+
+          <div class="drivercards">
+            <div class="drivercard active"><div class="role">Current</div><div class="name" id="currentDriver">—</div><div class="meta" id="currentMeta"></div></div>
+            <div class="drivercard"><div class="role">Next</div><div class="name" id="nextDriver">—</div><div class="meta" id="nextMeta"></div></div>
+            <div class="drivercard"><div class="role">Following</div><div class="name" id="followingDriver">—</div><div class="meta" id="followingMeta"></div></div>
+          </div>
+
+          <div class="toolbar">
+            <button class="good" id="pitNowBtn">PIT NOW</button>
+            <button id="plusLapBtn">+1 lap current</button>
+            <button id="minusLapBtn">−1 lap current</button>
+            <button class="warn" id="delayBtn">Delay downstream</button>
+            <button id="advanceBtn">Advance stint</button>
+            <button id="resetBtn">Reset race state</button>
+          </div>
+
+          <div class="tablewrap">
+            <table id="stintTable">
+              <thead><tr><th>#</th><th>Driver</th><th>Laps</th><th>IRL Start</th><th>IRL Finish</th><th>Server Start</th><th>Server Finish</th><th>Remaining</th><th>Availability</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top:12px">
+        <h2>Driver Totals</h2>
+        <div class="cardbody totalstable"><table><thead><tr><th>Driver</th><th>Laps</th><th>Driving</th><th>Stints</th></tr></thead><tbody id="totalsBody"></tbody></table></div>
+      </section>
+    </main>
+
+    <aside>
+      <section class="card">
+        <h2>Fuel Calculator</h2>
+        <div class="cardbody">
+          <div class="sidegrid">
+            <div class="field"><label>Fuel / lap (L)</label><input id="fuelPerLap" type="number" step=".01"/></div>
+            <div class="field"><label>Avg lap (sec)</label><input id="avgLapSec" type="number" step=".1"/></div>
+            <div class="field"><label>Tank (L)</label><input id="tankLitres" type="number" step="1"/></div>
+            <div class="field"><label>Safety margin (laps)</label><input id="fuelMarginLaps" type="number" step="1"/></div>
+            <div class="field"><label>Target laps</label><input id="fuelLaps" type="number" step="1" placeholder="e.g. 52"/></div>
+            <div class="field"><label>Time remaining (min)</label><input id="fuelMinutes" type="number" step=".1" placeholder="e.g. 47"/></div>
+          </div>
+          <div class="toolbar"><button class="primary" id="calcFuelBtn">Calculate fuel</button><button id="useCurrentBtn">Use current stint</button></div>
+          <div class="fuelresult"><div class="sub">Recommendation</div><div class="big" id="fuelBig">—</div><div id="fuelDetail">Enter laps or minutes.</div></div>
+
+          <div class="voice">
+            <button id="voiceBtn">🎙 Push to talk</button>
+            <div class="sub" id="voiceText">Say “fuel 2.24, 47 minutes” or “add one lap”.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top:12px">
+        <h2>Race Settings</h2>
+        <div class="cardbody">
+          <div class="sidegrid">
+            <div class="field"><label>IRL race start</label><input id="irlStart" type="time"/></div>
+            <div class="field"><label>Server start (locked)</label><input id="serverStart" type="time" disabled/></div>
+            <div class="field"><label>Pit loss (sec)</label><input id="pitLossSec" type="number" step="1"/></div>
+            <div class="field"><label>Race hours</label><input id="raceHours" type="number" step="1"/></div>
+          </div>
+          <div class="toolbar"><button id="recalcBtn">Recalculate schedule</button></div>
+          <div id="availWarning" class="warning hidden"></div>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top:12px">
+        <h2>Strategy Notes</h2>
+        <div class="cardbody">
+          <textarea id="strategyNotes" placeholder="Weather, tyres, brake ducts, repair calls, steward notes…"></textarea>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top:12px">
+        <h2>Race Log</h2>
+        <div class="cardbody"><div class="log" id="raceLog"></div></div>
+      </section>
+    </aside>
+  </div>
+  <footer>Standalone-first MVP. Works as a normal web app; Discord Activity mode is enabled when a Client/Application ID is configured.</footer>
+</div>
+
+<script type="module">
+const $ = s => document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const fmtSec=s=>{
+  s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  return `${pad(h)}:${pad(m)}:${pad(sec)}`
+};
+const timeToSec=t=>{const [h,m]=t.split(':').map(Number);return h*3600+m*60};
+const secToClock=s=>{s=((s%86400)+86400)%86400;return `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(Math.floor(s%60))}`};
+const deepClone=o=>JSON.parse(JSON.stringify(o));
+
+let seed = await fetch('./seed.json').then(r=>r.json());
+let state = JSON.parse(localStorage.getItem('dacc-race-engineer')||'null') || deepClone(seed);
+state.runtime ||= {currentIndex:0, elapsedRaceSec:0, notes:''};
+
+const driversById=()=>Object.fromEntries(state.drivers.map(d=>[d.id,d]));
+const label=id=>driversById()[id]?.label||id;
+
+function log(msg){
+  const now=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const el=$('#raceLog'); el.innerHTML=`<div>${now} — ${msg}</div>`+el.innerHTML;
+}
+function save(){ state.runtime.notes=$('#strategyNotes').value; localStorage.setItem('dacc-race-engineer',JSON.stringify(state)); $('#saveBtn').textContent='Saved ✓'; setTimeout(()=>$('#saveBtn').textContent='Save',900) }
+
+function availabilityContains(driverId, startSec, finishSec){
+  const d=driversById()[driverId]; if(!d?.availability?.length) return true;
+  const within=(t,a,b)=>{ if(a===b) return true; if(b>a) return t>=a&&t<=b; return t>=a||t<=b; };
+  // sample start/mid/end against each interval, enough for race planning windows crossing midnight
+  const s=((startSec%86400)+86400)%86400, f=((finishSec%86400)+86400)%86400, mid=((startSec+(finishSec-startSec)/2)%86400+86400)%86400;
+  return d.availability.some(([aa,bb])=>{
+    const a=timeToSec(aa),b=timeToSec(bb); return within(s,a,b)&&within(mid,a,b)&&within(f,a,b)
+  })
+}
+function schedule(){
+  const e=state.event, lap=e.avgLapSec, pit=e.pitLossSec;
+  let irl=timeToSec(e.irlStart), server=timeToSec(e.serverStart), remaining=e.raceHours*3600;
+  return state.stints.map((st,i)=>{
+    const drive=st.laps*lap, start=irl, finish=start+drive, ss=server, sf=ss+drive;
+    const avail=availabilityContains(st.driver,start,finish);
+    const row={...st,i,start,finish,serverStart:ss,serverFinish:sf,remaining,drive,avail};
+    irl=finish+(i<state.stints.length-1?pit:0);
+    server=sf+(i<state.stints.length-1?pit:0);
+    remaining=Math.max(0,remaining-drive-(i<state.stints.length-1?pit:0));
+    return row
+  })
+}
+function render(){
+  const sch=schedule(), e=state.event, cur=Math.min(state.runtime.currentIndex,sch.length-1);
+  $('#eventTitle').textContent=`${e.name} • ${e.track}`;
+  $('#irlStart').value=e.irlStart; $('#serverStart').value=e.serverStart; $('#pitLossSec').value=e.pitLossSec; $('#raceHours').value=e.raceHours;
+  $('#fuelPerLap').value=e.fuelPerLap; $('#avgLapSec').value=e.avgLapSec; $('#tankLitres').value=e.tankLitres; $('#fuelMarginLaps').value=e.fuelMarginLaps;
+  $('#strategyNotes').value=state.runtime.notes||'';
+  $('#raceRemaining').textContent=fmtSec(Math.max(0,e.raceHours*3600-state.runtime.elapsedRaceSec));
+  $('#serverClock').textContent=secToClock(timeToSec(e.serverStart)+state.runtime.elapsedRaceSec);
+  $('#plannedFinish').textContent=secToClock(sch.at(-1)?.finish||0);
+  $('#currentStintNo').textContent=cur+1;
+  $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0);
+
+  for(const [prefix,idx] of [['current',cur],['next',cur+1],['following',cur+2]]){
+    const r=sch[idx];
+    $(`#${prefix}Driver`).textContent=r?label(r.driver):'—';
+    $(`#${prefix}Meta`).textContent=r?`${r.laps} laps • ${secToClock(r.start)}–${secToClock(r.finish)}`:'';
+  }
+
+  const tbody=$('#stintTable tbody'); tbody.innerHTML='';
+  sch.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    if(i===cur) tr.classList.add('active-row'); else if(!r.avail) tr.classList.add('bad-row');
+    const opts=state.drivers.map(d=>`<option value="${d.id}" ${d.id===r.driver?'selected':''}>${d.label}</option>`).join('');
+    tr.innerHTML=`<td>${i+1}</td><td><select data-driver="${i}">${opts}</select></td>
+      <td class="num"><input class="small" type="number" min="1" data-laps="${i}" value="${r.laps}"></td>
+      <td>${secToClock(r.start)}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}</td><td>${secToClock(r.serverFinish)}</td>
+      <td>${fmtSec(r.remaining)}</td><td>${r.avail?'<span style="color:var(--good)">✓</span>':'<span style="color:var(--bad)">OUT</span>'}</td>
+      <td><div class="rowbtns"><button data-up="${i}">↑</button><button data-down="${i}">↓</button><button data-del="${i}">×</button></div></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('[data-driver]').forEach(x=>x.onchange=()=>{state.stints[+x.dataset.driver].driver=x.value; render()});
+  tbody.querySelectorAll('[data-laps]').forEach(x=>x.onchange=()=>{state.stints[+x.dataset.laps].laps=Math.max(1,+x.value||1); render()});
+  tbody.querySelectorAll('[data-up]').forEach(x=>x.onclick=()=>move(+x.dataset.up,-1));
+  tbody.querySelectorAll('[data-down]').forEach(x=>x.onclick=()=>move(+x.dataset.down,1));
+  tbody.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{state.stints.splice(+x.dataset.del,1);render()});
+
+  const totals={}; state.drivers.forEach(d=>totals[d.id]={laps:0,drive:0,stints:0});
+  sch.forEach(r=>{totals[r.driver]??={laps:0,drive:0,stints:0};totals[r.driver].laps+=r.laps;totals[r.driver].drive+=r.drive;totals[r.driver].stints++});
+  $('#totalsBody').innerHTML=state.drivers.map(d=>`<tr><td>${d.label}</td><td>${totals[d.id].laps}</td><td>${fmtSec(totals[d.id].drive)}</td><td>${totals[d.id].stints}</td></tr>`).join('');
+  const bad=sch.filter(r=>!r.avail);
+  $('#availWarning').classList.toggle('hidden',!bad.length);
+  $('#availWarning').textContent=bad.length?`Availability warning: stint${bad.length>1?'s':''} ${bad.map(x=>x.i+1).join(', ')} outside declared driver window.`:'';
+}
+function move(i,d){const j=i+d;if(j<0||j>=state.stints.length)return;[state.stints[i],state.stints[j]]=[state.stints[j],state.stints[i]];render()}
+function calculateFuel(){
+  const rate=+$('#fuelPerLap').value||state.event.fuelPerLap, lap=+$('#avgLapSec').value||state.event.avgLapSec, tank=+$('#tankLitres').value||state.event.tankLitres, margin=+$('#fuelMarginLaps').value||0;
+  let laps=+$('#fuelLaps').value||0, mins=+$('#fuelMinutes').value||0;
+  if(!laps&&mins) laps=Math.ceil(mins*60/lap);
+  if(!laps){$('#fuelBig').textContent='—';$('#fuelDetail').textContent='Enter target laps or remaining minutes.';return}
+  const min=laps*rate, recommended=Math.min(tank,(laps+margin)*rate);
+  $('#fuelBig').textContent=`${recommended.toFixed(1)} L`;
+  $('#fuelDetail').textContent=`${laps} laps expected • ${min.toFixed(1)} L minimum • ${margin} lap margin${recommended>=tank?' • TANK LIMIT':''}`;
+}
+function parseVoice(text){
+  const t=text.toLowerCase(); $('#voiceText').textContent=text;
+  let m=t.match(/(?:fuel(?: rate)?\s*)?(\d+(?:\.\d+)?)\s*(?:litres?|liters?)?(?: per lap)?[, ]+(?:for )?(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/);
+  if(m){$('#fuelPerLap').value=m[1];$('#fuelMinutes').value=m[2];$('#fuelLaps').value='';calculateFuel();log(`Voice fuel calc: ${m[1]} L/lap for ${m[2]} min`);return}
+  m=t.match(/(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/); if(t.includes('fuel')&&m){$('#fuelMinutes').value=m[1];calculateFuel();return}
+  if(t.includes('add one lap')||t.includes('plus one lap')){state.stints[state.runtime.currentIndex].laps++;render();log('Voice: +1 lap');return}
+  if(t.includes('remove one lap')||t.includes('minus one lap')){state.stints[state.runtime.currentIndex].laps=Math.max(1,state.stints[state.runtime.currentIndex].laps-1);render();log('Voice: -1 lap');return}
+  m=t.match(/delay.*?(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/); if(m){state.event.irlStart=secToClock(timeToSec(state.event.irlStart)+(+m[1]*60)).slice(0,5);render();log(`Voice: delay ${m[1]} min`);return}
+  if(t.includes('next driver')){const r=schedule()[state.runtime.currentIndex+1];$('#voiceText').textContent=r?`Next: ${label(r.driver)}, ${r.laps} laps, ${secToClock(r.start)}`:'No next stint';return}
+  $('#voiceText').textContent=`Heard: “${text}” — command not recognised.`;
+}
+$('#calcFuelBtn').onclick=calculateFuel;
+$('#useCurrentBtn').onclick=()=>{$('#fuelLaps').value=state.stints[state.runtime.currentIndex]?.laps||'';$('#fuelMinutes').value='';calculateFuel()};
+$('#plusLapBtn').onclick=()=>{state.stints[state.runtime.currentIndex].laps++;render();log('+1 lap current stint')};
+$('#minusLapBtn').onclick=()=>{state.stints[state.runtime.currentIndex].laps=Math.max(1,state.stints[state.runtime.currentIndex].laps-1);render();log('-1 lap current stint')};
+$('#advanceBtn').onclick=()=>{state.runtime.currentIndex=Math.min(state.stints.length-1,state.runtime.currentIndex+1);render();log(`Advanced to stint ${state.runtime.currentIndex+1}`)};
+$('#pitNowBtn').onclick=()=>{const sch=schedule(),i=state.runtime.currentIndex; state.runtime.elapsedRaceSec=Math.max(state.runtime.elapsedRaceSec, sch[i]?.finish-timeToSec(state.event.irlStart)||0);log(`PIT NOW called on stint ${i+1}`);state.runtime.currentIndex=Math.min(state.stints.length-1,i+1);render()};
+$('#delayBtn').onclick=()=>{const mins=parseFloat(prompt('Delay downstream schedule by how many minutes?','3'));if(!Number.isFinite(mins))return;state.event.irlStart=secToClock(timeToSec(state.event.irlStart)+mins*60).slice(0,5);render();log(`Schedule delayed ${mins} min`)};
+$('#resetBtn').onclick=()=>{if(confirm('Reset live race state? Schedule/settings are kept.')){state.runtime.currentIndex=0;state.runtime.elapsedRaceSec=0;render();log('Race state reset')}};
+$('#recalcBtn').onclick=()=>{state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#avgLapSec').value;state.event.fuelPerLap=+$('#fuelPerLap').value;state.event.tankLitres=+$('#tankLitres').value;state.event.fuelMarginLaps=+$('#fuelMarginLaps').value;render();log('Schedule recalculated')};
+$('#saveBtn').onclick=save;
+$('#exportBtn').onclick=()=>{save();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dacc-race-state.json';a.click();URL.revokeObjectURL(a.href)};
+$('#importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;state=JSON.parse(await f.text());state.runtime ||= {currentIndex:0,elapsedRaceSec:0,notes:''};render();log('Imported JSON')};
+$('#strategyNotes').onchange=save;
+
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){
+  const rec=new SR(); rec.lang='en-GB';rec.interimResults=false;rec.maxAlternatives=1;
+  rec.onstart=()=>$('#voiceBtn').classList.add('listening');
+  rec.onend=()=>$('#voiceBtn').classList.remove('listening');
+  rec.onresult=e=>parseVoice(e.results[0][0].transcript);
+  rec.onerror=e=>$('#voiceText').textContent=`Voice error: ${e.error}`;
+  $('#voiceBtn').onclick=()=>rec.start();
+}else{$('#voiceBtn').disabled=true;$('#voiceText').textContent='Voice recognition is not supported in this browser.'}
+
+async function initDiscord(){
+  const clientId=window.DACC_CONFIG?.discordClientId?.trim();
+  if(!clientId) return;
+  try{
+    const {DiscordSDK}=await import('https://esm.sh/@discord/embedded-app-sdk');
+    const sdk=new DiscordSDK(clientId);
+    await sdk.ready();
+    $('#modeBadge').textContent='Discord Activity';
+    log('Discord Embedded App SDK ready');
+  }catch(err){console.warn(err);$('#modeBadge').textContent='Standalone (Discord SDK unavailable)'}
+}
+render(); calculateFuel(); initDiscord();
+</script>
+</body>
+</html>
