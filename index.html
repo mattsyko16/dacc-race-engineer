@@ -43,7 +43,7 @@ table{border-collapse:collapse;width:100%;min-width:860px} th,td{padding:7px 8px
 th{position:sticky;top:0;background:#171d27;color:#aab5c6;font-size:11px;text-transform:uppercase;z-index:1}
 tr.active-row{background:#1b2b47} tr.warn-row{background:#3a3019} tr.bad-row{background:#412525}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
-select,input[type=number],input[type=time],input[type=text]{background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:7px;padding:6px}
+select,input[type=number],input[type=time],input[type=text],input[type=password]{background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:7px;padding:6px}
 select{min-width:120px} input.small{width:72px}
 .rowbtns{display:flex;gap:4px}.rowbtns button{padding:4px 7px;font-size:12px}
 .sidegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.field{display:flex;flex-direction:column;gap:4px}
@@ -54,7 +54,7 @@ select{min-width:120px} input.small{width:72px}
 @keyframes pulse{50%{box-shadow:0 0 0 8px rgba(242,109,109,.08)}}
 .log{height:115px;overflow:auto;background:#0e1218;border:1px solid var(--line);border-radius:8px;padding:8px;color:#bac4d3;font-size:12px}
 .totalstable table{min-width:0}.totalstable td,.totalstable th{padding:6px}
-.warning{padding:8px 10px;border-radius:8px;background:#332b17;color:#ffdb7c;border:1px solid #5a491f;margin-top:8px}
+.warning{padding:8px 10px;border-radius:8px;background:#332b17;color:#ffdb7c;border:1px solid #5a491f;margin-top:8px}.syncrow{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.sessioncode{font-size:20px;font-weight:900;letter-spacing:.12em}.goodtext{color:var(--good)}.badtext{color:var(--bad)}
 .hidden{display:none}
 textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:8px;padding:8px;resize:vertical}
 footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
@@ -65,7 +65,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge" id="modeBadge">Standalone</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -76,7 +76,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="kpis">
             <div class="kpi"><div class="label">Race remaining</div><div class="value" id="raceRemaining">--:--:--</div></div>
             <div class="kpi"><div class="label">Server clock</div><div class="value" id="serverClock">--:--:--</div></div>
-            <div class="kpi"><div class="label">IRL planned finish</div><div class="value" id="plannedFinish">--:--</div></div>
+            <div class="kpi"><div class="label">IRL projected finish</div><div class="value" id="plannedFinish">--:--</div></div>
             <div class="kpi"><div class="label">Current stint</div><div class="value" id="currentStintNo">1</div></div>
             <div class="kpi"><div class="label">Projected laps</div><div class="value" id="projectedLaps">0</div></div>
           </div>
@@ -88,13 +88,16 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           </div>
 
           <div class="toolbar">
-            <button class="good" id="pitNowBtn">PIT NOW</button>
+            <button class="primary" id="startRaceBtn">START RACE</button>
+            <button id="pauseRaceBtn" disabled>PAUSE</button>
+            <button class="good" id="pitNowBtn" disabled>PIT NOW</button>
             <button id="plusLapBtn">+1 lap current</button>
             <button id="minusLapBtn">−1 lap current</button>
             <button class="warn" id="delayBtn">Delay downstream</button>
             <button id="advanceBtn">Advance stint</button>
             <button id="resetBtn">Reset race state</button>
           </div>
+          <div id="liveBanner" class="warning hidden"></div>
 
           <div class="tablewrap">
             <table id="stintTable">
@@ -112,12 +115,44 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
     </main>
 
     <aside>
+
       <section class="card">
+        <h2>Shared Race Session</h2>
+        <div class="cardbody">
+          <div class="syncrow">
+            <div>
+              <div class="sub">Session</div>
+              <div class="sessioncode" id="sharedCode">LOCAL</div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div class="sub">Last update</div>
+              <div id="lastUpdated">—</div>
+            </div>
+          </div>
+          <div class="toolbar">
+            <button class="primary" id="createSessionBtn">Create Shared Race</button>
+            <button id="joinActiveBtn">Join Active Race</button>
+            <button id="copySessionBtn" disabled>Copy Viewer Link</button>
+            <button id="leaveSessionBtn" disabled>Leave Session</button>
+          </div>
+          <div class="sidegrid">
+            <div class="field"><label>Session code</label><input id="sessionCodeInput" type="text" maxlength="12" placeholder="e.g. A1B2C3D4"/></div>
+            <div class="field"><label>Race Control key</label><input id="controlKeyInput" type="password" placeholder="Only Race Control needs this"/></div>
+          </div>
+          <div class="toolbar">
+            <button id="joinCodeBtn">Join Code</button>
+            <button id="unlockControlBtn">Unlock Race Control</button>
+          </div>
+          <div class="sub" id="sharedHelp">Create one shared race, then everyone else can launch the Activity and choose Join Active Race. Viewers see all live changes; only Race Control can alter the shared state.</div>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top:12px">
         <h2>Fuel Calculator</h2>
         <div class="cardbody">
           <div class="sidegrid">
             <div class="field"><label>Fuel / lap (L)</label><input id="fuelPerLap" type="number" step=".01"/></div>
-            <div class="field"><label>Avg lap (sec)</label><input id="avgLapSec" type="number" step=".1"/></div>
+            <div class="field"><label>Calc avg lap (sec)</label><input id="avgLapSec" type="number" step=".1"/></div>
             <div class="field"><label>Tank (L)</label><input id="tankLitres" type="number" step="1"/></div>
             <div class="field"><label>Safety margin (laps)</label><input id="fuelMarginLaps" type="number" step="1"/></div>
             <div class="field"><label>Target laps</label><input id="fuelLaps" type="number" step="1" placeholder="e.g. 52"/></div>
@@ -141,6 +176,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <div class="field"><label>Server start (locked)</label><input id="serverStart" type="time" disabled/></div>
             <div class="field"><label>Pit loss (sec)</label><input id="pitLossSec" type="number" step="1"/></div>
             <div class="field"><label>Race hours</label><input id="raceHours" type="number" step="1"/></div>
+            <div class="field"><label>Planning avg lap (sec)</label><input id="planAvgLapSec" type="number" step=".1"/></div>
           </div>
           <div class="toolbar"><button id="recalcBtn">Recalculate schedule</button></div>
           <div id="availWarning" class="warning hidden"></div>
@@ -160,7 +196,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Standalone-first MVP. Works as a normal web app; Discord Activity mode is enabled when a Client/Application ID is configured.</footer>
+  <footer>Race-control V3 • shared live session • viewer mode • controller-protected edits • live timing.</footer>
 </div>
 
 <script type="module">
@@ -170,145 +206,488 @@ const fmtSec=s=>{
   s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
   return `${pad(h)}:${pad(m)}:${pad(sec)}`
 };
-const timeToSec=t=>{const [h,m]=t.split(':').map(Number);return h*3600+m*60};
+const timeToSec=t=>{const [h,m]=String(t||'00:00').split(':').map(Number);return (h||0)*3600+(m||0)*60};
 const secToClock=s=>{s=((s%86400)+86400)%86400;return `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(Math.floor(s%60))}`};
 const deepClone=o=>JSON.parse(JSON.stringify(o));
+const cfg=window.DACC_CONFIG||{};
 
 let seed = await fetch('./seed.json').then(r=>r.json());
 let state = JSON.parse(localStorage.getItem('dacc-race-engineer')||'null') || deepClone(seed);
-state.runtime ||= {currentIndex:0, elapsedRaceSec:0, notes:''};
+
+const calcDefaults={
+  fuelPerLap:Number(state.event?.fuelPerLap||2.2),
+  avgLapSec:Number(state.event?.avgLapSec||90.8),
+  tankLitres:Number(state.event?.tankLitres||120),
+  fuelMarginLaps:Number(state.event?.fuelMarginLaps||2)
+};
+let localCalc=JSON.parse(localStorage.getItem('dacc-fuel-calc')||'null')||calcDefaults;
+
+const shared={
+  supabase:null,
+  code:null,
+  controlKey:null,
+  isController:false,
+  channel:null,
+  status:'LOCAL',
+  lastUpdated:null,
+  applyingRemote:false,
+  pushTimer:null
+};
+
+function migrateRuntime(){
+  state.runtime ||= {};
+  const r=state.runtime;
+  if(!r.status) r.status='PRE-RACE';
+  if(!Number.isInteger(r.currentIndex)) r.currentIndex=0;
+  if(!Array.isArray(r.actualStints)) r.actualStints=[];
+  if(typeof r.notes!=='string') r.notes='';
+  if(!Array.isArray(r.log)) r.log=[];
+  if(!Number.isFinite(r.startedAtMs)) r.startedAtMs=null;
+  if(!Number.isFinite(r.startClockSec)) r.startClockSec=null;
+  if(!Number.isFinite(r.totalPausedMs)) r.totalPausedMs=0;
+  if(!Number.isFinite(r.pausedAtMs)) r.pausedAtMs=null;
+  if(!Number.isFinite(r.manualElapsedSec)) r.manualElapsedSec=Number.isFinite(r.elapsedRaceSec)?r.elapsedRaceSec:0;
+}
+migrateRuntime();
 
 const driversById=()=>Object.fromEntries(state.drivers.map(d=>[d.id,d]));
 const label=id=>driversById()[id]?.label||id;
+const canEdit=()=>!shared.code || shared.isController;
 
-function log(msg){
-  const now=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const el=$('#raceLog'); el.innerHTML=`<div>${now} — ${msg}</div>`+el.innerHTML;
+function saveLocal(){
+  localStorage.setItem('dacc-race-engineer',JSON.stringify(state));
 }
-function save(){ state.runtime.notes=$('#strategyNotes').value; localStorage.setItem('dacc-race-engineer',JSON.stringify(state)); $('#saveBtn').textContent='Saved ✓'; setTimeout(()=>$('#saveBtn').textContent='Save',900) }
+function saveCalc(){
+  localCalc={
+    fuelPerLap:+$('#fuelPerLap').value||localCalc.fuelPerLap,
+    avgLapSec:+$('#avgLapSec').value||localCalc.avgLapSec,
+    tankLitres:+$('#tankLitres').value||localCalc.tankLitres,
+    fuelMarginLaps:+$('#fuelMarginLaps').value||localCalc.fuelMarginLaps
+  };
+  localStorage.setItem('dacc-fuel-calc',JSON.stringify(localCalc));
+}
+function setSyncStatus(status){
+  shared.status=status;
+  const el=$('#syncBadge');
+  el.textContent=status;
+  el.style.color=status==='LIVE'?'var(--good)':status==='OFFLINE'||status==='ERROR'?'var(--bad)':status==='CONNECTING'||status==='RECONNECTING'?'var(--warn)':'var(--muted)';
+}
+function renderSharedMeta(){
+  $('#sharedCode').textContent=shared.code||'LOCAL';
+  $('#roleBadge').textContent=canEdit()?'RACE CONTROL':'VIEW ONLY';
+  $('#roleBadge').style.color=canEdit()?'var(--good)':'var(--muted)';
+  $('#lastUpdated').textContent=shared.lastUpdated?new Date(shared.lastUpdated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
+  $('#sessionCodeInput').value=shared.code||$('#sessionCodeInput').value||'';
+  $('#controlKeyInput').value=shared.controlKey||'';
+  $('#copySessionBtn').disabled=!shared.code;
+  $('#leaveSessionBtn').disabled=!shared.code;
+  $('#createSessionBtn').disabled=!!shared.code || !shared.supabase;
+  $('#joinActiveBtn').disabled=!!shared.code || !shared.supabase;
+  $('#joinCodeBtn').disabled=!!shared.code || !shared.supabase;
+  $('#unlockControlBtn').disabled=!shared.code || shared.isController || !shared.supabase;
+}
+function addLog(msg, sync=true){
+  const entry={ts:new Date().toISOString(),msg};
+  state.runtime.log.unshift(entry);
+  state.runtime.log=state.runtime.log.slice(0,80);
+  renderLog();
+  if(sync) commitState();
+}
+function renderLog(){
+  const el=$('#raceLog');
+  el.innerHTML=(state.runtime.log||[]).map(x=>{
+    const t=new Date(x.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return `<div>${t} — ${x.msg}</div>`
+  }).join('');
+}
+function commitState(){
+  state.runtime.notes=$('#strategyNotes').value;
+  saveLocal();
+  if(shared.code && shared.isController && !shared.applyingRemote){
+    clearTimeout(shared.pushTimer);
+    shared.pushTimer=setTimeout(pushSharedState,180);
+  }
+}
+async function pushSharedState(){
+  if(!shared.supabase||!shared.code||!shared.isController) return;
+  setSyncStatus('CONNECTING');
+  const {data,error}=await shared.supabase.rpc('dacc_update_race_state',{
+    p_code:shared.code,
+    p_control_key:shared.controlKey,
+    p_state:state
+  });
+  if(error){
+    console.error(error);
+    setSyncStatus('OFFLINE');
+    return;
+  }
+  const row=Array.isArray(data)?data[0]:data;
+  shared.lastUpdated=row?.updated_at||new Date().toISOString();
+  setSyncStatus('LIVE');
+  renderSharedMeta();
+}
+function applyRemote(remoteState,updatedAt){
+  if(!remoteState) return;
+  shared.applyingRemote=true;
+  state=remoteState;
+  migrateRuntime();
+  saveLocal();
+  shared.lastUpdated=updatedAt||new Date().toISOString();
+  render();
+  shared.applyingRemote=false;
+}
 
+function localClockSecNow(){
+  const d=new Date();
+  return d.getHours()*3600+d.getMinutes()*60+d.getSeconds();
+}
+function elapsedRaceSec(){
+  const r=state.runtime;
+  if(r.status==='PRE-RACE') return 0;
+  if(!r.startedAtMs) return r.manualElapsedSec||0;
+  const now = r.status==='PAUSED' && r.pausedAtMs ? r.pausedAtMs : Date.now();
+  return Math.max(0,(now-r.startedAtMs-r.totalPausedMs)/1000);
+}
+function actualRaceStartClockSec(){
+  return Number.isFinite(state.runtime.startClockSec) ? state.runtime.startClockSec : timeToSec(state.event.irlStart);
+}
 function availabilityContains(driverId, startSec, finishSec){
   const d=driversById()[driverId]; if(!d?.availability?.length) return true;
   const within=(t,a,b)=>{ if(a===b) return true; if(b>a) return t>=a&&t<=b; return t>=a||t<=b; };
-  // sample start/mid/end against each interval, enough for race planning windows crossing midnight
   const s=((startSec%86400)+86400)%86400, f=((finishSec%86400)+86400)%86400, mid=((startSec+(finishSec-startSec)/2)%86400+86400)%86400;
   return d.availability.some(([aa,bb])=>{
     const a=timeToSec(aa),b=timeToSec(bb); return within(s,a,b)&&within(mid,a,b)&&within(f,a,b)
   })
 }
 function schedule(){
-  const e=state.event, lap=e.avgLapSec, pit=e.pitLossSec;
-  let irl=timeToSec(e.irlStart), server=timeToSec(e.serverStart), remaining=e.raceHours*3600;
-  return state.stints.map((st,i)=>{
-    const drive=st.laps*lap, start=irl, finish=start+drive, ss=server, sf=ss+drive;
-    const avail=availabilityContains(st.driver,start,finish);
-    const row={...st,i,start,finish,serverStart:ss,serverFinish:sf,remaining,drive,avail};
-    irl=finish+(i<state.stints.length-1?pit:0);
-    server=sf+(i<state.stints.length-1?pit:0);
-    remaining=Math.max(0,remaining-drive-(i<state.stints.length-1?pit:0));
-    return row
-  })
+  const e=state.event, lap=e.avgLapSec, pit=e.pitLossSec, live=state.runtime.status!=='PRE-RACE';
+  const baseClock=live?actualRaceStartClockSec():timeToSec(e.irlStart), serverBase=timeToSec(e.serverStart);
+  const rows=[];
+  state.stints.forEach((st,i)=>{
+    const actual=state.runtime.actualStints[i]||{};
+    let startElapsed;
+    if(Number.isFinite(actual.startElapsed)) startElapsed=actual.startElapsed;
+    else if(i===0) startElapsed=0;
+    else startElapsed=rows[i-1].finishElapsed+pit;
+    const plannedDrive=st.laps*lap;
+    const finishElapsed=Number.isFinite(actual.finishElapsed)?actual.finishElapsed:startElapsed+plannedDrive;
+    const drive=finishElapsed-startElapsed;
+    const irlStart=baseClock+startElapsed,irlFinish=baseClock+finishElapsed;
+    const serverStart=serverBase+startElapsed,serverFinish=serverBase+finishElapsed;
+    rows.push({...st,i,start:irlStart,finish:irlFinish,serverStart,serverFinish,startElapsed,finishElapsed,
+      remaining:Math.max(0,e.raceHours*3600-startElapsed),drive,plannedDrive,
+      avail:availabilityContains(st.driver,irlStart,irlFinish),
+      isActualStart:Number.isFinite(actual.startElapsed),isActualFinish:Number.isFinite(actual.finishElapsed)});
+  });
+  return rows
 }
+function livePhase(sch){
+  if(state.runtime.status==='PRE-RACE') return 'PRE-RACE';
+  if(state.runtime.status==='FINISHED') return 'FINISHED';
+  const cur=Math.min(state.runtime.currentIndex,sch.length-1), elapsed=elapsedRaceSec(),r=sch[cur];
+  if(r&&elapsed<r.startElapsed) return 'PIT / CHANGEOVER';
+  if(elapsed>=state.event.raceHours*3600) return 'FINISHED';
+  return state.runtime.status;
+}
+
 function render(){
-  const sch=schedule(), e=state.event, cur=Math.min(state.runtime.currentIndex,sch.length-1);
+  const sch=schedule(),e=state.event,cur=Math.min(state.runtime.currentIndex,Math.max(0,sch.length-1));
+  const elapsed=elapsedRaceSec(),phase=livePhase(sch),edit=canEdit();
   $('#eventTitle').textContent=`${e.name} • ${e.track}`;
-  $('#irlStart').value=e.irlStart; $('#serverStart').value=e.serverStart; $('#pitLossSec').value=e.pitLossSec; $('#raceHours').value=e.raceHours;
-  $('#fuelPerLap').value=e.fuelPerLap; $('#avgLapSec').value=e.avgLapSec; $('#tankLitres').value=e.tankLitres; $('#fuelMarginLaps').value=e.fuelMarginLaps;
-  $('#strategyNotes').value=state.runtime.notes||'';
-  $('#raceRemaining').textContent=fmtSec(Math.max(0,e.raceHours*3600-state.runtime.elapsedRaceSec));
-  $('#serverClock').textContent=secToClock(timeToSec(e.serverStart)+state.runtime.elapsedRaceSec);
+  if(document.activeElement!==$('#irlStart')) $('#irlStart').value=e.irlStart;
+  $('#serverStart').value=e.serverStart;
+  if(document.activeElement!==$('#pitLossSec')) $('#pitLossSec').value=e.pitLossSec;
+  if(document.activeElement!==$('#raceHours')) $('#raceHours').value=e.raceHours;
+  if(document.activeElement!==$('#planAvgLapSec')) $('#planAvgLapSec').value=e.avgLapSec;
+  if(document.activeElement!==$('#strategyNotes')) $('#strategyNotes').value=state.runtime.notes||'';
+
+  $('#statusBadge').textContent=phase;
+  $('#statusBadge').style.color=phase==='LIVE'?'var(--good)':phase==='PAUSED'||phase==='PIT / CHANGEOVER'?'var(--warn)':phase==='FINISHED'?'var(--bad)':'var(--muted)';
+  $('#raceRemaining').textContent=fmtSec(Math.max(0,e.raceHours*3600-elapsed));
+  $('#serverClock').textContent=secToClock(timeToSec(e.serverStart)+elapsed);
   $('#plannedFinish').textContent=secToClock(sch.at(-1)?.finish||0);
-  $('#currentStintNo').textContent=cur+1;
+  $('#currentStintNo').textContent=phase==='PIT / CHANGEOVER'?`PIT→${cur+1}`:(cur+1);
   $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0);
 
+  const startBtn=$('#startRaceBtn'),pauseBtn=$('#pauseRaceBtn'),pitBtn=$('#pitNowBtn');
+  startBtn.disabled=!edit||state.runtime.status!=='PRE-RACE';
+  startBtn.textContent=state.runtime.status==='PRE-RACE'?'START RACE':'RACE STARTED';
+  pauseBtn.disabled=!edit||!['LIVE','PAUSED'].includes(state.runtime.status);
+  pauseBtn.textContent=state.runtime.status==='PAUSED'?'RESUME':'PAUSE';
+  pitBtn.disabled=!edit||state.runtime.status!=='LIVE'||phase==='PIT / CHANGEOVER';
+  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','advanceBtn','resetBtn','recalcBtn','saveBtn']){
+    $( '#'+id ).disabled=!edit;
+  }
+  $('#importFile').disabled=!edit;
+  for(const id of ['irlStart','pitLossSec','raceHours','planAvgLapSec']) $('#'+id).disabled=!edit;
+  $('#strategyNotes').disabled=!edit;
+
+  const liveBanner=$('#liveBanner');
+  liveBanner.classList.toggle('hidden',state.runtime.status==='PRE-RACE');
+  if(state.runtime.status!=='PRE-RACE'){
+    const r=sch[cur];
+    liveBanner.textContent=phase==='PIT / CHANGEOVER'
+      ?`PIT / CHANGEOVER — ${label(r?.driver)} starts in ${fmtSec(Math.max(0,(r?.startElapsed||0)-elapsed))}`
+      :phase==='FINISHED'?'RACE FINISHED'
+      :`${phase} — elapsed ${fmtSec(elapsed)} • ${label(r?.driver)} • stint ${cur+1}`;
+  }
   for(const [prefix,idx] of [['current',cur],['next',cur+1],['following',cur+2]]){
     const r=sch[idx];
     $(`#${prefix}Driver`).textContent=r?label(r.driver):'—';
-    $(`#${prefix}Meta`).textContent=r?`${r.laps} laps • ${secToClock(r.start)}–${secToClock(r.finish)}`:'';
+    const actualTag=r?.isActualFinish?' • ACTUAL':r?.isActualStart?' • LIVE':'';
+    $(`#${prefix}Meta`).textContent=r?`${r.laps} laps • ${secToClock(r.start)}–${secToClock(r.finish)}${actualTag}`:'';
   }
 
-  const tbody=$('#stintTable tbody'); tbody.innerHTML='';
+  const tbody=$('#stintTable tbody');tbody.innerHTML='';
   sch.forEach((r,i)=>{
     const tr=document.createElement('tr');
-    if(i===cur) tr.classList.add('active-row'); else if(!r.avail) tr.classList.add('bad-row');
+    if(i===cur&&state.runtime.status!=='FINISHED') tr.classList.add('active-row'); else if(!r.avail) tr.classList.add('bad-row');
     const opts=state.drivers.map(d=>`<option value="${d.id}" ${d.id===r.driver?'selected':''}>${d.label}</option>`).join('');
-    tr.innerHTML=`<td>${i+1}</td><td><select data-driver="${i}">${opts}</select></td>
-      <td class="num"><input class="small" type="number" min="1" data-laps="${i}" value="${r.laps}"></td>
+    const rowState=r.isActualFinish?'<span style="color:var(--good)">ACTUAL</span>':
+      (i===cur&&state.runtime.status!=='PRE-RACE'?'<span style="color:var(--accent)">LIVE</span>':
+      (r.avail?'<span style="color:var(--good)">✓</span>':'<span style="color:var(--bad)">OUT</span>'));
+    const locked=!edit||r.isActualFinish;
+    tr.innerHTML=`<td>${i+1}</td><td><select data-driver="${i}" ${locked?'disabled':''}>${opts}</select></td>
+      <td class="num"><input class="small" type="number" min="1" data-laps="${i}" value="${r.laps}" ${locked?'disabled':''}></td>
       <td>${secToClock(r.start)}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}</td><td>${secToClock(r.serverFinish)}</td>
-      <td>${fmtSec(r.remaining)}</td><td>${r.avail?'<span style="color:var(--good)">✓</span>':'<span style="color:var(--bad)">OUT</span>'}</td>
-      <td><div class="rowbtns"><button data-up="${i}">↑</button><button data-down="${i}">↓</button><button data-del="${i}">×</button></div></td>`;
+      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td>
+      <td><div class="rowbtns"><button data-up="${i}" ${(!edit||state.runtime.status!=='PRE-RACE')?'disabled':''}>↑</button><button data-down="${i}" ${(!edit||state.runtime.status!=='PRE-RACE')?'disabled':''}>↓</button><button data-del="${i}" ${(!edit||state.runtime.status!=='PRE-RACE')?'disabled':''}>×</button></div></td>`;
     tbody.appendChild(tr);
   });
-  tbody.querySelectorAll('[data-driver]').forEach(x=>x.onchange=()=>{state.stints[+x.dataset.driver].driver=x.value; render()});
-  tbody.querySelectorAll('[data-laps]').forEach(x=>x.onchange=()=>{state.stints[+x.dataset.laps].laps=Math.max(1,+x.value||1); render()});
+  tbody.querySelectorAll('[data-driver]').forEach(x=>x.onchange=()=>{state.stints[+x.dataset.driver].driver=x.value;commitState();render()});
+  tbody.querySelectorAll('[data-laps]').forEach(x=>x.onchange=()=>{state.stints[+x.dataset.laps].laps=Math.max(1,+x.value||1);commitState();render()});
   tbody.querySelectorAll('[data-up]').forEach(x=>x.onclick=()=>move(+x.dataset.up,-1));
   tbody.querySelectorAll('[data-down]').forEach(x=>x.onclick=()=>move(+x.dataset.down,1));
-  tbody.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{state.stints.splice(+x.dataset.del,1);render()});
+  tbody.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{if(!canEdit())return;state.stints.splice(+x.dataset.del,1);commitState();render()});
 
-  const totals={}; state.drivers.forEach(d=>totals[d.id]={laps:0,drive:0,stints:0});
+  const totals={};state.drivers.forEach(d=>totals[d.id]={laps:0,drive:0,stints:0});
   sch.forEach(r=>{totals[r.driver]??={laps:0,drive:0,stints:0};totals[r.driver].laps+=r.laps;totals[r.driver].drive+=r.drive;totals[r.driver].stints++});
   $('#totalsBody').innerHTML=state.drivers.map(d=>`<tr><td>${d.label}</td><td>${totals[d.id].laps}</td><td>${fmtSec(totals[d.id].drive)}</td><td>${totals[d.id].stints}</td></tr>`).join('');
-  const bad=sch.filter(r=>!r.avail);
-  $('#availWarning').classList.toggle('hidden',!bad.length);
-  $('#availWarning').textContent=bad.length?`Availability warning: stint${bad.length>1?'s':''} ${bad.map(x=>x.i+1).join(', ')} outside declared driver window.`:'';
+
+  const bad=sch.filter(r=>!r.avail),scheduleOverrun=(sch.at(-1)?.finishElapsed||0)-e.raceHours*3600,warnings=[];
+  if(bad.length) warnings.push(`Availability: stint${bad.length>1?'s':''} ${bad.map(x=>x.i+1).join(', ')} outside declared window.`);
+  if(scheduleOverrun>0) warnings.push(`Projected schedule is ${fmtSec(scheduleOverrun)} longer than the ${e.raceHours}h race.`);
+  $('#availWarning').classList.toggle('hidden',!warnings.length);
+  $('#availWarning').textContent=warnings.join(' ');
+  renderLog();renderSharedMeta();
 }
-function move(i,d){const j=i+d;if(j<0||j>=state.stints.length)return;[state.stints[i],state.stints[j]]=[state.stints[j],state.stints[i]];render()}
+function move(i,d){
+  if(!canEdit()||state.runtime.status!=='PRE-RACE')return;
+  const j=i+d;if(j<0||j>=state.stints.length)return;
+  [state.stints[i],state.stints[j]]=[state.stints[j],state.stints[i]];
+  commitState();render()
+}
+
 function calculateFuel(){
-  const rate=+$('#fuelPerLap').value||state.event.fuelPerLap, lap=+$('#avgLapSec').value||state.event.avgLapSec, tank=+$('#tankLitres').value||state.event.tankLitres, margin=+$('#fuelMarginLaps').value||0;
-  let laps=+$('#fuelLaps').value||0, mins=+$('#fuelMinutes').value||0;
+  saveCalc();
+  const rate=localCalc.fuelPerLap,lap=localCalc.avgLapSec,tank=localCalc.tankLitres,margin=localCalc.fuelMarginLaps;
+  let laps=+$('#fuelLaps').value||0,mins=+$('#fuelMinutes').value||0;
   if(!laps&&mins) laps=Math.ceil(mins*60/lap);
   if(!laps){$('#fuelBig').textContent='—';$('#fuelDetail').textContent='Enter target laps or remaining minutes.';return}
-  const min=laps*rate, recommended=Math.min(tank,(laps+margin)*rate);
+  const min=laps*rate,recommended=Math.min(tank,(laps+margin)*rate);
   $('#fuelBig').textContent=`${recommended.toFixed(1)} L`;
   $('#fuelDetail').textContent=`${laps} laps expected • ${min.toFixed(1)} L minimum • ${margin} lap margin${recommended>=tank?' • TANK LIMIT':''}`;
 }
+function initCalcInputs(){
+  $('#fuelPerLap').value=localCalc.fuelPerLap;
+  $('#avgLapSec').value=localCalc.avgLapSec;
+  $('#tankLitres').value=localCalc.tankLitres;
+  $('#fuelMarginLaps').value=localCalc.fuelMarginLaps;
+}
 function parseVoice(text){
-  const t=text.toLowerCase(); $('#voiceText').textContent=text;
+  const t=text.toLowerCase();$('#voiceText').textContent=text;
   let m=t.match(/(?:fuel(?: rate)?\s*)?(\d+(?:\.\d+)?)\s*(?:litres?|liters?)?(?: per lap)?[, ]+(?:for )?(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/);
-  if(m){$('#fuelPerLap').value=m[1];$('#fuelMinutes').value=m[2];$('#fuelLaps').value='';calculateFuel();log(`Voice fuel calc: ${m[1]} L/lap for ${m[2]} min`);return}
-  m=t.match(/(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/); if(t.includes('fuel')&&m){$('#fuelMinutes').value=m[1];calculateFuel();return}
-  if(t.includes('add one lap')||t.includes('plus one lap')){state.stints[state.runtime.currentIndex].laps++;render();log('Voice: +1 lap');return}
-  if(t.includes('remove one lap')||t.includes('minus one lap')){state.stints[state.runtime.currentIndex].laps=Math.max(1,state.stints[state.runtime.currentIndex].laps-1);render();log('Voice: -1 lap');return}
-  m=t.match(/delay.*?(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/); if(m){state.event.irlStart=secToClock(timeToSec(state.event.irlStart)+(+m[1]*60)).slice(0,5);render();log(`Voice: delay ${m[1]} min`);return}
+  if(m){$('#fuelPerLap').value=m[1];$('#fuelMinutes').value=m[2];$('#fuelLaps').value='';calculateFuel();return}
+  m=t.match(/(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/);if(t.includes('fuel')&&m){$('#fuelMinutes').value=m[1];calculateFuel();return}
+  if(!canEdit()&&(t.includes('lap')||t.includes('delay'))){$('#voiceText').textContent='View-only: Race Control must make schedule changes.';return}
+  if(t.includes('add one lap')||t.includes('plus one lap')){state.stints[state.runtime.currentIndex].laps++;commitState();render();addLog('Voice: +1 lap');return}
+  if(t.includes('remove one lap')||t.includes('minus one lap')){state.stints[state.runtime.currentIndex].laps=Math.max(1,state.stints[state.runtime.currentIndex].laps-1);commitState();render();addLog('Voice: -1 lap');return}
+  m=t.match(/delay.*?(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)/);if(m){delaySchedule(+m[1]);return}
   if(t.includes('next driver')){const r=schedule()[state.runtime.currentIndex+1];$('#voiceText').textContent=r?`Next: ${label(r.driver)}, ${r.laps} laps, ${secToClock(r.start)}`:'No next stint';return}
   $('#voiceText').textContent=`Heard: “${text}” — command not recognised.`;
 }
+
+function startRace(){
+  if(!canEdit()||state.runtime.status!=='PRE-RACE')return;
+  if(!confirm('Start the 24 hour race clock now? This records the actual IRL start time for everyone.'))return;
+  state.runtime.status='LIVE';state.runtime.currentIndex=0;state.runtime.startedAtMs=Date.now();
+  state.runtime.startClockSec=localClockSecNow();state.runtime.totalPausedMs=0;state.runtime.pausedAtMs=null;
+  state.runtime.manualElapsedSec=0;state.runtime.actualStints=[{startElapsed:0}];
+  addLog(`RACE STARTED — IRL ${secToClock(state.runtime.startClockSec)} • server ${state.event.serverStart}`,false);
+  commitState();render()
+}
+function pauseResume(){
+  if(!canEdit())return;
+  if(state.runtime.status==='LIVE'){state.runtime.pausedAtMs=Date.now();state.runtime.status='PAUSED';addLog('Race timer paused',false)}
+  else if(state.runtime.status==='PAUSED'){state.runtime.totalPausedMs+=Date.now()-state.runtime.pausedAtMs;state.runtime.pausedAtMs=null;state.runtime.status='LIVE';addLog('Race timer resumed',false)}
+  commitState();render()
+}
+function pitNow(){
+  if(!canEdit()||state.runtime.status!=='LIVE')return;
+  const i=state.runtime.currentIndex,sch=schedule(),elapsed=elapsedRaceSec(),r=sch[i];
+  if(!r||elapsed<r.startElapsed)return;
+  state.runtime.actualStints[i]||={startElapsed:r.startElapsed};state.runtime.actualStints[i].finishElapsed=elapsed;
+  addLog(`PIT NOW — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(elapsed)}`,false);
+  if(i>=state.stints.length-1){state.runtime.status='FINISHED';addLog('Final stint complete — FINISHED',false)}
+  else{
+    const next=i+1;state.runtime.currentIndex=next;state.runtime.actualStints[next]||={};
+    state.runtime.actualStints[next].startElapsed=elapsed+state.event.pitLossSec;
+    addLog(`Next: ${label(state.stints[next].driver)} after ${state.event.pitLossSec}s pit/changeover`,false);
+  }
+  commitState();render()
+}
+function delaySchedule(mins){
+  if(!canEdit()||!Number.isFinite(mins))return;
+  const sec=mins*60;
+  if(state.runtime.status==='PRE-RACE'){state.event.irlStart=secToClock(timeToSec(state.event.irlStart)+sec).slice(0,5);addLog(`Planned race start delayed ${mins} min`,false)}
+  else{
+    const i=state.runtime.currentIndex,r=state.runtime.actualStints[i]||={},sch=schedule(),base=Number.isFinite(r.startElapsed)?r.startElapsed:sch[i].startElapsed;
+    r.startElapsed=base+sec;state.runtime.actualStints[i]=r;addLog(`Current/downstream schedule delayed ${mins} min`,false)
+  }
+  commitState();render()
+}
+
+async function verifyController(code,key){
+  if(!shared.supabase||!code||!key)return false;
+  const {data,error}=await shared.supabase.rpc('dacc_verify_race_control',{p_code:code,p_control_key:key});
+  return !error&&data===true;
+}
+async function unsubscribeShared(){
+  if(shared.channel&&shared.supabase) await shared.supabase.removeChannel(shared.channel);
+  shared.channel=null;
+}
+async function subscribeShared(){
+  await unsubscribeShared();
+  shared.channel=shared.supabase.channel(`dacc-race-${shared.code}`)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'dacc_race_sessions',filter:`code=eq.${shared.code}`},payload=>{
+      applyRemote(payload.new.state,payload.new.updated_at);setSyncStatus('LIVE');
+    })
+    .subscribe(status=>{
+      if(status==='SUBSCRIBED')setSyncStatus('LIVE');
+      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncStatus('RECONNECTING');
+      else if(status==='CLOSED'&&shared.code)setSyncStatus('OFFLINE');
+    });
+}
+async function joinSession(code){
+  if(!shared.supabase)return alert('Supabase is not configured yet.');
+  code=String(code||'').trim().toUpperCase();
+  if(!code)return;
+  setSyncStatus('CONNECTING');
+  const {data,error}=await shared.supabase.from('dacc_race_sessions').select('code,state,updated_at').eq('code',code).eq('is_active',true).maybeSingle();
+  if(error||!data){setSyncStatus('OFFLINE');return alert('Active race session not found.')}
+  shared.code=data.code;localStorage.setItem('dacc-session-code',shared.code);
+  const stored=localStorage.getItem(`dacc-control-key:${shared.code}`)||'';
+  shared.controlKey=stored;
+  shared.isController=stored?await verifyController(shared.code,stored):false;
+  if(!shared.isController)shared.controlKey='';
+  applyRemote(data.state,data.updated_at);
+  await subscribeShared();
+  render();
+}
+async function joinActive(){
+  if(!shared.supabase)return alert('Supabase is not configured yet.');
+  setSyncStatus('CONNECTING');
+  const eventKey=cfg.eventKey||'dacc-race';
+  const {data,error}=await shared.supabase.from('dacc_race_sessions').select('code').eq('event_key',eventKey).eq('is_active',true).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if(error||!data){setSyncStatus('LOCAL');return alert('No active DACC race session yet. Race Control needs to create one first.')}
+  await joinSession(data.code);
+}
+function randomKey(len=14){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const a=new Uint32Array(len);crypto.getRandomValues(a);
+  return [...a].map(n=>chars[n%chars.length]).join('');
+}
+async function createSharedSession(){
+  if(!shared.supabase)return alert('Supabase is not configured yet.');
+  const key=randomKey(14),eventKey=cfg.eventKey||'dacc-race';
+  setSyncStatus('CONNECTING');
+  const {data,error}=await shared.supabase.rpc('dacc_create_race_session',{p_state:state,p_control_key:key,p_event_key:eventKey});
+  if(error){console.error(error);setSyncStatus('ERROR');return alert(`Could not create session: ${error.message}`)}
+  const row=Array.isArray(data)?data[0]:data;
+  shared.code=row.code;shared.controlKey=key;shared.isController=true;
+  localStorage.setItem('dacc-session-code',shared.code);localStorage.setItem(`dacc-control-key:${shared.code}`,key);
+  $('#controlKeyInput').value=key;
+  shared.lastUpdated=new Date().toISOString();
+  await subscribeShared();setSyncStatus('LIVE');render();
+  alert(`Shared race created.\n\nSession: ${shared.code}\nRace Control key: ${key}\n\nKeep the Race Control key private. Everyone else can use Join Active Race.`);
+}
+async function unlockControl(){
+  const key=$('#controlKeyInput').value.trim();
+  if(!shared.code||!key)return;
+  if(await verifyController(shared.code,key)){
+    shared.controlKey=key;shared.isController=true;localStorage.setItem(`dacc-control-key:${shared.code}`,key);render();
+  }else alert('Race Control key not recognised.');
+}
+async function leaveSession(){
+  await unsubscribeShared();shared.code=null;shared.controlKey=null;shared.isController=false;shared.lastUpdated=null;
+  localStorage.removeItem('dacc-session-code');setSyncStatus('LOCAL');render();
+}
+async function copyViewerLink(){
+  if(!shared.code)return;
+  const u=new URL(location.href);u.searchParams.set('session',shared.code);
+  await navigator.clipboard.writeText(u.toString());
+  $('#copySessionBtn').textContent='Copied ✓';setTimeout(()=>$('#copySessionBtn').textContent='Copy Viewer Link',900);
+}
+async function initShared(){
+  const url=String(cfg.supabaseUrl||'').trim(),key=String(cfg.supabaseAnonKey||cfg.supabasePublishableKey||'').trim();
+  if(!url||!key){setSyncStatus('LOCAL');renderSharedMeta();return}
+  try{
+    const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');
+    shared.supabase=createClient(url,key,{auth:{persistSession:false}});
+    const param=new URLSearchParams(location.search).get('session');
+    if(param){await joinSession(param);return}
+    const saved=localStorage.getItem('dacc-session-code');
+    if(saved){await joinSession(saved);return}
+    if(cfg.autoJoinLatest!==false) await joinActive();
+  }catch(err){console.error(err);setSyncStatus('OFFLINE')}
+}
+
 $('#calcFuelBtn').onclick=calculateFuel;
 $('#useCurrentBtn').onclick=()=>{$('#fuelLaps').value=state.stints[state.runtime.currentIndex]?.laps||'';$('#fuelMinutes').value='';calculateFuel()};
-$('#plusLapBtn').onclick=()=>{state.stints[state.runtime.currentIndex].laps++;render();log('+1 lap current stint')};
-$('#minusLapBtn').onclick=()=>{state.stints[state.runtime.currentIndex].laps=Math.max(1,state.stints[state.runtime.currentIndex].laps-1);render();log('-1 lap current stint')};
-$('#advanceBtn').onclick=()=>{state.runtime.currentIndex=Math.min(state.stints.length-1,state.runtime.currentIndex+1);render();log(`Advanced to stint ${state.runtime.currentIndex+1}`)};
-$('#pitNowBtn').onclick=()=>{const sch=schedule(),i=state.runtime.currentIndex; state.runtime.elapsedRaceSec=Math.max(state.runtime.elapsedRaceSec, sch[i]?.finish-timeToSec(state.event.irlStart)||0);log(`PIT NOW called on stint ${i+1}`);state.runtime.currentIndex=Math.min(state.stints.length-1,i+1);render()};
-$('#delayBtn').onclick=()=>{const mins=parseFloat(prompt('Delay downstream schedule by how many minutes?','3'));if(!Number.isFinite(mins))return;state.event.irlStart=secToClock(timeToSec(state.event.irlStart)+mins*60).slice(0,5);render();log(`Schedule delayed ${mins} min`)};
-$('#resetBtn').onclick=()=>{if(confirm('Reset live race state? Schedule/settings are kept.')){state.runtime.currentIndex=0;state.runtime.elapsedRaceSec=0;render();log('Race state reset')}};
-$('#recalcBtn').onclick=()=>{state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#avgLapSec').value;state.event.fuelPerLap=+$('#fuelPerLap').value;state.event.tankLitres=+$('#tankLitres').value;state.event.fuelMarginLaps=+$('#fuelMarginLaps').value;render();log('Schedule recalculated')};
-$('#saveBtn').onclick=save;
-$('#exportBtn').onclick=()=>{save();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dacc-race-state.json';a.click();URL.revokeObjectURL(a.href)};
-$('#importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;state=JSON.parse(await f.text());state.runtime ||= {currentIndex:0,elapsedRaceSec:0,notes:''};render();log('Imported JSON')};
-$('#strategyNotes').onchange=save;
+for(const id of ['fuelPerLap','avgLapSec','tankLitres','fuelMarginLaps']) $('#'+id).onchange=saveCalc;
+$('#plusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.currentIndex].laps++;addLog('+1 lap current stint',false);commitState();render()};
+$('#minusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.currentIndex].laps=Math.max(1,state.stints[state.runtime.currentIndex].laps-1);addLog('-1 lap current stint',false);commitState();render()};
+$('#advanceBtn').onclick=()=>{if(!canEdit())return;if(state.runtime.status==='LIVE'){pitNow();return}state.runtime.currentIndex=Math.min(state.stints.length-1,state.runtime.currentIndex+1);addLog(`Advanced to stint ${state.runtime.currentIndex+1}`,false);commitState();render()};
+$('#pitNowBtn').onclick=pitNow;
+$('#delayBtn').onclick=()=>{if(!canEdit())return;const mins=parseFloat(prompt('Delay current/downstream schedule by how many minutes?','3'));if(Number.isFinite(mins))delaySchedule(mins)};
+$('#startRaceBtn').onclick=startRace;$('#pauseRaceBtn').onclick=pauseResume;
+$('#resetBtn').onclick=()=>{if(!canEdit())return;if(confirm('Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.')){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[]};commitState();render()}};
+$('#recalcBtn').onclick=()=>{if(!canEdit())return;state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;addLog('Schedule recalculated',false);commitState();render()};
+$('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
+$('#exportBtn').onclick=()=>{saveLocal();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dacc-race-state.json';a.click();URL.revokeObjectURL(a.href)};
+$('#importFile').onchange=async e=>{if(!canEdit())return;const f=e.target.files[0];if(!f)return;state=JSON.parse(await f.text());migrateRuntime();addLog('Imported JSON',false);commitState();render()};
+$('#strategyNotes').onchange=()=>{if(canEdit())commitState()};
+$('#createSessionBtn').onclick=createSharedSession;$('#joinActiveBtn').onclick=joinActive;
+$('#joinCodeBtn').onclick=()=>joinSession($('#sessionCodeInput').value);$('#unlockControlBtn').onclick=unlockControl;
+$('#leaveSessionBtn').onclick=leaveSession;$('#copySessionBtn').onclick=copyViewerLink;
 
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 if(SR){
-  const rec=new SR(); rec.lang='en-GB';rec.interimResults=false;rec.maxAlternatives=1;
-  rec.onstart=()=>$('#voiceBtn').classList.add('listening');
-  rec.onend=()=>$('#voiceBtn').classList.remove('listening');
-  rec.onresult=e=>parseVoice(e.results[0][0].transcript);
-  rec.onerror=e=>$('#voiceText').textContent=`Voice error: ${e.error}`;
+  const rec=new SR();rec.lang='en-GB';rec.interimResults=false;rec.maxAlternatives=1;
+  rec.onstart=()=>$('#voiceBtn').classList.add('listening');rec.onend=()=>$('#voiceBtn').classList.remove('listening');
+  rec.onresult=e=>parseVoice(e.results[0][0].transcript);rec.onerror=e=>$('#voiceText').textContent=`Voice error: ${e.error}`;
   $('#voiceBtn').onclick=()=>rec.start();
 }else{$('#voiceBtn').disabled=true;$('#voiceText').textContent='Voice recognition is not supported in this browser.'}
 
+setInterval(()=>{
+  if(['LIVE','PAUSED'].includes(state.runtime.status)){
+    if(canEdit()&&state.runtime.status==='LIVE'&&elapsedRaceSec()>=state.event.raceHours*3600){
+      state.runtime.status='FINISHED';addLog('Race clock reached zero — FINISHED',false);commitState();
+    }
+    render();
+  }
+},1000);
+
 async function initDiscord(){
-  const clientId=window.DACC_CONFIG?.discordClientId?.trim();
-  if(!clientId) return;
+  const clientId=String(cfg.discordClientId||'').trim();
+  if(!clientId)return;
   try{
     const {DiscordSDK}=await import('https://esm.sh/@discord/embedded-app-sdk');
-    const sdk=new DiscordSDK(clientId);
-    await sdk.ready();
-    $('#modeBadge').textContent='Discord Activity';
-    log('Discord Embedded App SDK ready');
+    const sdk=new DiscordSDK(clientId);await sdk.ready();$('#modeBadge').textContent='Discord Activity';
   }catch(err){console.warn(err);$('#modeBadge').textContent='Standalone (Discord SDK unavailable)'}
 }
-render(); calculateFuel(); initDiscord();
+
+initCalcInputs();render();calculateFuel();initDiscord();await initShared();render();
 </script>
 </body>
 </html>
