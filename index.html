@@ -65,7 +65,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V3.4</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -196,7 +196,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V3.1 • Discord-safe controls • shared live session • 2-second live sync • controller-protected edits.</footer>
+  <footer>Race-control V3.4 • live future-stint reordering • shared live session • Discord Supabase proxy.</footer>
 </div>
 
 <script type="module">
@@ -294,7 +294,8 @@ function modalAsk({title='Confirm',text='',input=false,value='',ok='OK',cancel='
     $('#modalOk').textContent=ok; $('#modalCancel').textContent=cancel;
     inp.classList.toggle('hidden',!input); inp.value=value||'';
     back.classList.remove('hidden');
-    const finish=v=>{back.classList.add('hidden'); $('#modalOk').onclick=null; $('#modalCancel').onclick=null; resolve(v)};
+    back.style.display='grid';
+    const finish=v=>{back.style.display='none';back.classList.add('hidden'); $('#modalOk').onclick=null; $('#modalCancel').onclick=null; resolve(v)};
     $('#modalOk').onclick=()=>finish(input?inp.value:true);
     $('#modalCancel').onclick=()=>finish(input?null:false);
     if(input) setTimeout(()=>{inp.focus();inp.select()},30);
@@ -444,7 +445,7 @@ function render(){
     liveBanner.textContent=phase==='PIT / CHANGEOVER'
       ?`PIT / CHANGEOVER — ${label(r?.driver)} starts in ${fmtSec(Math.max(0,(r?.startElapsed||0)-elapsed))}`
       :phase==='FINISHED'?'RACE FINISHED'
-      :`${phase} — elapsed ${fmtSec(elapsed)} • ${label(r?.driver)} • stint ${cur+1}`;
+      :`${phase} — elapsed ${fmtSec(elapsed)} • ${label(r?.driver)} • stint ${cur+1}${edit?' • future stints editable':''}`;
   }
   for(const [prefix,idx] of [['current',cur],['next',cur+1],['following',cur+2]]){
     const r=sch[idx];
@@ -461,19 +462,31 @@ function render(){
     const rowState=r.isActualFinish?'<span style="color:var(--good)">ACTUAL</span>':
       (i===cur&&state.runtime.status!=='PRE-RACE'?'<span style="color:var(--accent)">LIVE</span>':
       (r.avail?'<span style="color:var(--good)">✓</span>':'<span style="color:var(--bad)">OUT</span>'));
-    const locked=!edit||r.isActualFinish;
+    const locked=!edit||r.isActualFinish||(state.runtime.status!=='PRE-RACE' && i<=cur);
     tr.innerHTML=`<td>${i+1}</td><td><select data-driver="${i}" ${locked?'disabled':''}>${opts}</select></td>
       <td class="num"><input class="small" type="number" min="1" data-laps="${i}" value="${r.laps}" ${locked?'disabled':''}></td>
       <td>${secToClock(r.start)}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}</td><td>${secToClock(r.serverFinish)}</td>
       <td>${fmtSec(r.remaining)}</td><td>${rowState}</td>
-      <td><div class="rowbtns"><button data-up="${i}" ${(!edit||state.runtime.status!=='PRE-RACE')?'disabled':''}>↑</button><button data-down="${i}" ${(!edit||state.runtime.status!=='PRE-RACE')?'disabled':''}>↓</button><button data-del="${i}" ${(!edit||state.runtime.status!=='PRE-RACE')?'disabled':''}>×</button></div></td>`;
+      <td><div class="rowbtns">
+        <button data-up="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur+1))?'disabled':''}>↑</button>
+        <button data-down="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur))?'disabled':''}>↓</button>
+        <button data-del="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur))?'disabled':''}>×</button>
+      </div></td>`;
     tbody.appendChild(tr);
   });
   tbody.querySelectorAll('[data-driver]').forEach(x=>x.onchange=()=>{state.stints[+x.dataset.driver].driver=x.value;commitState();render()});
   tbody.querySelectorAll('[data-laps]').forEach(x=>x.onchange=()=>{state.stints[+x.dataset.laps].laps=Math.max(1,+x.value||1);commitState();render()});
   tbody.querySelectorAll('[data-up]').forEach(x=>x.onclick=()=>move(+x.dataset.up,-1));
   tbody.querySelectorAll('[data-down]').forEach(x=>x.onclick=()=>move(+x.dataset.down,1));
-  tbody.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{if(!canEdit())return;state.stints.splice(+x.dataset.del,1);commitState();render()});
+  tbody.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{
+    if(!canEdit()) return;
+    const i=+x.dataset.del;
+    const cur=state.runtime.currentIndex;
+    if(state.runtime.status!=='PRE-RACE' && i<=cur) return;
+    state.stints.splice(i,1);
+    commitState();
+    render();
+  });
 
   const totals={};state.drivers.forEach(d=>totals[d.id]={laps:0,drive:0,stints:0});
   sch.forEach(r=>{totals[r.driver]??={laps:0,drive:0,stints:0};totals[r.driver].laps+=r.laps;totals[r.driver].drive+=r.drive;totals[r.driver].stints++});
@@ -487,10 +500,21 @@ function render(){
   renderLog();renderSharedMeta();
 }
 function move(i,d){
-  if(!canEdit()||state.runtime.status!=='PRE-RACE')return;
-  const j=i+d;if(j<0||j>=state.stints.length)return;
+  if(!canEdit()) return;
+  const j=i+d;
+  if(j<0||j>=state.stints.length) return;
+
+  // PRE-RACE: all stints may be reordered.
+  // LIVE/PAUSED/PIT: completed + current stint are fixed; only future stints move.
+  if(state.runtime.status!=='PRE-RACE'){
+    const cur=state.runtime.currentIndex;
+    if(i<=cur || j<=cur) return;
+  }
+
   [state.stints[i],state.stints[j]]=[state.stints[j],state.stints[i]];
-  commitState();render()
+  addLog(`Reordered future stints: ${i+1} ↔ ${j+1}`,false);
+  commitState();
+  render();
 }
 
 function calculateFuel(){
@@ -563,14 +587,33 @@ function delaySchedule(mins){
   commitState();render()
 }
 
+function isDiscordActivityHost(){
+  const h=String(location.hostname||'').toLowerCase();
+  return h.endsWith('.discordsays.com') || h==='discordsays.com';
+}
 async function supa(path,{method='GET',body=null,prefer=null}={}){
-  const base=String(cfg.supabaseUrl||'').replace(/\/+$/,'');
   const key=String(cfg.supabaseAnonKey||cfg.supabasePublishableKey||'').trim();
-  if(!base||!key) throw new Error('Supabase is not configured');
+  if(!key) throw new Error('Supabase public key is not configured');
+
+  // Discord Activities are sandboxed and cannot call arbitrary external URLs
+  // directly. In Discord we route through Activities -> URL Mappings:
+  //   PREFIX /supabase  -> TARGET <project-ref>.supabase.co
+  // In a normal browser, use the configured Supabase project URL directly.
+  const root = isDiscordActivityHost()
+    ? '/supabase'
+    : String(cfg.supabaseUrl||'').replace(/\/+$/,'');
+
+  if(!root) throw new Error('Supabase URL is not configured');
+
+  const url=`${root}/rest/v1/${path}`;
   const headers={'apikey':key,'Content-Type':'application/json'};
   if(prefer) headers['Prefer']=prefer;
-  const res=await fetch(`${base}/rest/v1/${path}`,{
-    method,headers,body:body==null?undefined:JSON.stringify(body),cache:'no-store'
+
+  const res=await fetch(url,{
+    method,
+    headers,
+    body:body==null?undefined:JSON.stringify(body),
+    cache:'no-store'
   });
   const text=await res.text();
   let data=null;
@@ -753,10 +796,15 @@ async function initDiscord(){
   }catch(err){console.warn(err);$('#modeBadge').textContent='Standalone (Discord SDK unavailable)'}
 }
 
-initCalcInputs();render();calculateFuel();initDiscord();await initShared();render();
+const _modal=$('#modalBack'); if(_modal){_modal.style.display='none';_modal.classList.add('hidden');}
+initCalcInputs();render();calculateFuel();initDiscord();
+if(isDiscordActivityHost()){
+  $('#sharedHelp').textContent='Discord Activity mode: shared state uses the /supabase URL Mapping.';
+}
+await initShared();render();
 </script>
 
-<div id="modalBack" class="modalback hidden">
+<div id="modalBack" class="modalback hidden" style="display:none">
   <div class="modalbox">
     <h3 id="modalTitle">Confirm</h3>
     <p id="modalText"></p>
