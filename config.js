@@ -4,7 +4,7 @@ window.DACC_CONFIG = {
   discordGuildId: "",
 
   // Supabase -> Project Settings -> API
-  supabaseUrl: "https://ttcwtywmqsmyklfycjyn.supabase.co/rest/v1/",
+  supabaseUrl: "https://ttcwtywmqsmyklfycjyn.supabase.co",
   supabaseAnonKey: "sb_publishable_pa-tt1_F6CnlA2mDNtkYjA_iRlbiUcY",
 
   // All DACC clients use this to find the current active race automatically.
