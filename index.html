@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=yes"/><meta name="apple-mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <title>DACC Race Engineer</title>
 <style>
 :root{
@@ -10,7 +10,7 @@
   --text:#f4f6fb;--muted:#9aa6ba;--good:#31c48d;--warn:#f8c555;--bad:#f26d6d;
   --accent:#7ea7ff;--accent2:#a880ff;--shadow:0 8px 28px rgba(0,0,0,.28)
 }
-*{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#090c11,#10151e);
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;touch-action:manipulation}button,input,select,textarea,label{-webkit-tap-highlight-color:transparent;touch-action:manipulation} body{margin:0;background:linear-gradient(180deg,#090c11,#10151e);
 font:14px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}
 button,input,select,textarea{font:inherit}
 .shell{max-width:1500px;margin:0 auto;padding:14px}
@@ -24,8 +24,8 @@ h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
 .card{background:rgba(20,25,34,.96);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .card h2{font-size:13px;letter-spacing:.05em;text-transform:uppercase;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);color:#dfe6f3}
 .cardbody{padding:12px}
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}button{min-height:46px;padding:11px 13px;font-size:15px}.toolbar{gap:8px}.toolbar button{flex:1 1 145px}.shell{padding:7px}.cardbody{padding:9px}.tablewrap{font-size:12px}.drivercard .name{font-size:18px}.kpi .value{font-size:18px}.sidegrid{grid-template-columns:1fr}.field input,.field select{min-height:44px;font-size:16px}.modalbox input{min-height:46px;font-size:16px}.syncrow{align-items:flex-start}.sessioncode{font-size:18px}}
 .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px}
 .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi .value{font-size:22px;font-weight:800;margin-top:4px}
 .drivercards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
@@ -35,10 +35,10 @@ h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
 .drivercard .name{font-size:20px;font-weight:800;margin:3px 0}.drivercard .meta{color:#cbd5e5;font-size:12px}
 .toolbar{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
 button{border:1px solid var(--line);background:#1b2330;color:var(--text);padding:8px 10px;border-radius:9px;cursor:pointer}
-button:hover{border-color:#53617a;background:#222c3b} button.primary{background:#315ecf;border-color:#4777e8}
+button:hover{border-color:#53617a;background:#222c3b}button:disabled{opacity:.42;cursor:not-allowed;pointer-events:none} button.primary{background:#315ecf;border-color:#4777e8}
 button.good{background:#176847;border-color:#248d62} button.warn{background:#6d5217;border-color:#9b7621}
 button.bad{background:#6d2828;border-color:#a43c3c}
-.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:11px}
+.tablewrap{overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;border:1px solid var(--line);border-radius:11px}
 table{border-collapse:collapse;width:100%;min-width:860px} th,td{padding:7px 8px;border-bottom:1px solid #252d3b;text-align:left;white-space:nowrap}
 th{position:sticky;top:0;background:#171d27;color:#aab5c6;font-size:11px;text-transform:uppercase;z-index:1}
 tr.active-row{background:#1b2b47} tr.warn-row{background:#3a3019} tr.bad-row{background:#412525}
@@ -55,7 +55,7 @@ select{min-width:120px} input.small{width:72px}
 .log{height:115px;overflow:auto;background:#0e1218;border:1px solid var(--line);border-radius:8px;padding:8px;color:#bac4d3;font-size:12px}
 .totalstable table{min-width:0}.totalstable td,.totalstable th{padding:6px}
 .warning{padding:8px 10px;border-radius:8px;background:#332b17;color:#ffdb7c;border:1px solid #5a491f;margin-top:8px}.syncrow{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.sessioncode{font-size:20px;font-weight:900;letter-spacing:.12em}.goodtext{color:var(--good)}.badtext{color:var(--bad)}
-.hidden{display:none !important}.modalback{position:fixed;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;z-index:9999;padding:18px}.modalbox{width:min(480px,100%);background:#151b25;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px}.modalbox h3{margin:0 0 8px;font-size:18px}.modalbox p{color:#cbd5e5}.modalbox input{width:100%;margin:8px 0 12px}.toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#17202c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);max-width:360px}
+.hidden{display:none !important;pointer-events:none !important}.modalback{position:fixed;pointer-events:auto;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;z-index:9999;padding:18px}.modalbox{width:min(480px,100%);background:#151b25;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px}.modalbox h3{margin:0 0 8px;font-size:18px}.modalbox p{color:#cbd5e5}.modalbox input{width:100%;margin:8px 0 12px}.toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#17202c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);max-width:360px}
 textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:8px;padding:8px;resize:vertical}
 footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 </style>
@@ -65,7 +65,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V3.5</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V3.7</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <div class="kpi"><div class="label">Race remaining</div><div class="value" id="raceRemaining">--:--:--</div></div>
             <div class="kpi"><div class="label">Server clock</div><div class="value" id="serverClock">--:--:--</div></div>
             <div class="kpi"><div class="label">IRL projected finish</div><div class="value" id="plannedFinish">--:--</div></div>
-            <div class="kpi"><div class="label">Current stint</div><div class="value" id="currentStintNo">1</div></div>
+            <div class="kpi"><div class="label">Current stint</div><div class="value" id="currentStintNo">1</div></div><div class="kpi"><div class="label">Start countdown</div><div class="value" id="startCountdown">—</div></div>
             <div class="kpi"><div class="label">Projected laps / stints</div><div class="value"><span id="projectedLaps">0</span> <span style="font-size:13px;color:var(--muted)" id="projectedStints"></span></div></div>
           </div>
 
@@ -89,6 +89,8 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 
           <div class="toolbar">
             <button class="primary" id="startRaceBtn">START RACE</button>
+            <button id="countdownBtn">2:00 COUNTDOWN</button>
+            <button id="countdownSetBtn">Set countdown</button>
             <button id="pauseRaceBtn" disabled>PAUSE</button>
             <button class="good" id="pitNowBtn" disabled>PIT NOW</button>
             <button id="plusLapBtn">+1 lap current</button>
@@ -138,13 +140,13 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           </div>
           <div class="sidegrid">
             <div class="field"><label>Session code</label><input id="sessionCodeInput" type="text" maxlength="12" placeholder="e.g. A1B2C3D4"/></div>
-            <div class="field"><label>Race Control key</label><input id="controlKeyInput" type="password" placeholder="Only Race Control needs this"/></div>
+            <div class="field"><label>Race Control key</label><input id="controlKeyInput" type="password" placeholder="Share with trusted race controllers"/></div>
           </div>
           <div class="toolbar">
-            <button id="joinCodeBtn">Join Code</button>
+            <button id="joinCodeBtn">Join Code</button><button id="tapTestBtn">Test taps</button>
             <button id="unlockControlBtn">Unlock Race Control</button>
           </div>
-          <div class="sub" id="sharedHelp">Create one shared race, then everyone else can launch the Activity and choose Join Active Race. Viewers see all live changes; only Race Control can alter the shared state.</div>
+          <div class="sub" id="sharedHelp">Create one shared race, then everyone else can launch the Activity and choose Join Active Race. Viewers see all live changes; only Race Control can alter the shared state.</div><div class="sub" id="mobileStatus" style="margin-top:6px"></div>
         </div>
       </section>
 
@@ -163,7 +165,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="fuelresult"><div class="sub">Recommendation</div><div class="big" id="fuelBig">—</div><div id="fuelDetail">Enter laps or minutes.</div></div>
 
           <div class="voice">
-            <button id="voiceBtn">🎙 Push to talk</button>
+            <button id="voiceBtn">🎙 Push to talk</button><button id="voicePasteBtn">Voice text</button>
             <div class="sub" id="voiceText">Say “fuel 2.24, 47 minutes” or “add one lap”.</div>
           </div>
         </div>
@@ -197,7 +199,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V3.5 • add/remove/reorder future stints • shared live session • Discord Supabase proxy.</footer>
+  <footer>Race-control V3.7 • full iOS controls • mobile touch fix • countdown • multi-controller.</footer>
 </div>
 
 <script type="module">
@@ -248,6 +250,8 @@ function migrateRuntime(){
   if(!Number.isFinite(r.totalPausedMs)) r.totalPausedMs=0;
   if(!Number.isFinite(r.pausedAtMs)) r.pausedAtMs=null;
   if(!Number.isFinite(r.manualElapsedSec)) r.manualElapsedSec=Number.isFinite(r.elapsedRaceSec)?r.elapsedRaceSec:0;
+  if(!Number.isFinite(r.countdownSec)) r.countdownSec=120;
+  if(!Number.isFinite(r.countdownEndsAtMs)) r.countdownEndsAtMs=null;
   // PRE-RACE must always start from stint 1. Old test state from a previous build
   // should never make the planner look as though the race is already on stint 2+.
   if(r.status==='PRE-RACE'){
@@ -318,8 +322,8 @@ function renderSharedMeta(){
   $('#sharedHelp').textContent = !shared.code
     ? 'Create one shared race, then everyone else can launch the Activity and choose Join Active Race.'
     : shared.isController
-      ? 'RACE CONTROL — your changes are shared with every viewer.'
-      : 'VIEW ONLY — live race status is shared. Enter the Race Control key and click Unlock Race Control to take control on this device.';
+      ? 'RACE CONTROL — this device can edit. The same key can unlock 2–3 trusted Race Control devices.'
+      : 'VIEW ONLY — live race status is shared. Enter the shared Race Control key and click Unlock Race Control. The same key may be used on multiple trusted devices.';
 }
 function addLog(msg, sync=true){
   const entry={ts:new Date().toISOString(),msg};
@@ -416,7 +420,7 @@ function render(){
   if(document.activeElement!==$('#pitLossSec')) $('#pitLossSec').value=e.pitLossSec;
   if(document.activeElement!==$('#raceHours')) $('#raceHours').value=e.raceHours;
   if(document.activeElement!==$('#planAvgLapSec')) $('#planAvgLapSec').value=e.avgLapSec;
-  if(document.activeElement!==$('#strategyNotes')) $('#strategyNotes').value=state.runtime.notes||'';
+  if(document.activeElement!==$('#strategyNotes')) $('#strategyNotes').value=state.runtime.notes||''; $('#countdownBtn').textContent=`${Math.floor((state.runtime.countdownSec||120)/60)}:${pad((state.runtime.countdownSec||120)%60)} COUNTDOWN`;
 
   $('#statusBadge').textContent=phase;
   $('#statusBadge').style.color=phase==='LIVE'?'var(--good)':phase==='PAUSED'||phase==='PIT / CHANGEOVER'?'var(--warn)':phase==='FINISHED'?'var(--bad)':'var(--muted)';
@@ -425,6 +429,12 @@ function render(){
   $('#plannedFinish').textContent=secToClock(sch.at(-1)?.finish||0);
   $('#currentStintNo').textContent=phase==='PIT / CHANGEOVER'?`PIT→${cur+1}`:(cur+1);
   $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0); $('#projectedStints').textContent=`(${state.stints.length})`;
+  const cdLeft = Number.isFinite(state.runtime.countdownEndsAtMs) ? Math.max(0,(state.runtime.countdownEndsAtMs-Date.now())/1000) : null;
+  $('#startCountdown').textContent = cdLeft===null ? '—' : fmtSec(cdLeft);
+  if(cdLeft===0 && state.runtime.status==='PRE-RACE' && state.runtime.countdownEndsAtMs){
+    state.runtime.countdownEndsAtMs=null;
+    if(canEdit()) startRace(true);
+  }
 
   const startBtn=$('#startRaceBtn'),pauseBtn=$('#pauseRaceBtn'),pitBtn=$('#pitNowBtn');
   startBtn.disabled=!edit||state.runtime.status!=='PRE-RACE';
@@ -432,12 +442,15 @@ function render(){
   pauseBtn.disabled=!edit||!['LIVE','PAUSED'].includes(state.runtime.status);
   pauseBtn.textContent=state.runtime.status==='PAUSED'?'RESUME':'PAUSE';
   pitBtn.disabled=!edit||state.runtime.status!=='LIVE'||phase==='PIT / CHANGEOVER';
-  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','advanceBtn','addStintBtn','resetBtn','recalcBtn','saveBtn']){
-    $( '#'+id ).disabled=!edit;
+  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','advanceBtn','addStintBtn','countdownBtn','countdownSetBtn','resetBtn','recalcBtn','saveBtn']){
+    $('#'+id).disabled=!edit;
   }
   $('#importFile').disabled=!edit;
   for(const id of ['irlStart','pitLossSec','raceHours','planAvgLapSec']) $('#'+id).disabled=!edit;
   $('#strategyNotes').disabled=!edit;
+  for(const id of ['calcFuelBtn','useCurrentBtn','voicePasteBtn','tapTestBtn']){
+    const el=$('#'+id); if(el) el.disabled=false;
+  }
 
   const liveBanner=$('#liveBanner');
   liveBanner.classList.toggle('hidden',state.runtime.status==='PRE-RACE');
@@ -498,7 +511,7 @@ function render(){
   if(scheduleOverrun>0) warnings.push(`Projected schedule is ${fmtSec(scheduleOverrun)} longer than the ${e.raceHours}h race.`);
   $('#availWarning').classList.toggle('hidden',!warnings.length);
   $('#availWarning').textContent=warnings.join(' ');
-  renderLog();renderSharedMeta();
+  renderLog();renderSharedMeta();updateMobileStatus();
 }
 function move(i,d){
   if(!canEdit()) return;
@@ -603,12 +616,41 @@ async function addStint(){
   toast(`Stint ${state.stints.length} added. Use ↑ / ↓ to move it into position.`);
 }
 
-async function startRace(){
+
+async function startCountdown(){
+  if(!canEdit()||state.runtime.status!=='PRE-RACE') return;
+  const sec=Number(state.runtime.countdownSec)||120;
+  state.runtime.countdownEndsAtMs=Date.now()+sec*1000;
+  addLog(`Race start countdown armed: ${fmtSec(sec)}`,false);
+  commitState();
+  render();
+}
+async function setCountdown(){
+  if(!canEdit()||state.runtime.status!=='PRE-RACE') return;
+  const current=Number(state.runtime.countdownSec)||120;
+  const v=await modalAsk({
+    title:'Set race-start countdown',
+    text:'Countdown length in seconds. Example: 120 = two minutes.',
+    input:true,
+    value:String(current),
+    ok:'Set'
+  });
+  if(v===null) return;
+  const sec=Math.max(5,Math.round(Number(v)));
+  if(!Number.isFinite(sec)){toast('Enter a valid number of seconds.');return}
+  state.runtime.countdownSec=sec;
+  $('#countdownBtn').textContent=`${Math.floor(sec/60)}:${pad(sec%60)} COUNTDOWN`;
+  commitState();render();
+}
+
+async function startRace(auto=false){
   if(!canEdit()||state.runtime.status!=='PRE-RACE')return;
-  const ok=await modalAsk({title:'Start race?',text:'Start the 24 hour race clock now? This records the actual IRL start time for everyone.',ok:'START RACE'});
-  if(!ok)return;
+  if(!auto){
+    const ok=await modalAsk({title:'Start race?',text:'Start the 24 hour race clock now? This records the actual IRL start time for everyone.',ok:'START RACE'});
+    if(!ok)return;
+  }
   state.runtime.status='LIVE';state.runtime.currentIndex=0;state.runtime.startedAtMs=Date.now();
-  state.runtime.startClockSec=localClockSecNow();state.runtime.totalPausedMs=0;state.runtime.pausedAtMs=null;
+  state.runtime.startClockSec=localClockSecNow();state.runtime.countdownEndsAtMs=null;state.runtime.totalPausedMs=0;state.runtime.pausedAtMs=null;
   state.runtime.manualElapsedSec=0;state.runtime.actualStints=[{startElapsed:0}];
   addLog(`RACE STARTED — IRL ${secToClock(state.runtime.startClockSec)} • server ${state.event.serverStart}`,false);
   commitState();render()
@@ -816,16 +858,29 @@ $('#minusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.c
 $('#advanceBtn').onclick=()=>{if(!canEdit())return;if(state.runtime.status==='LIVE'){pitNow();return}state.runtime.currentIndex=Math.min(state.stints.length-1,state.runtime.currentIndex+1);addLog(`Advanced to stint ${state.runtime.currentIndex+1}`,false);commitState();render()};
 $('#pitNowBtn').onclick=pitNow;
 $('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay current/downstream schedule by how many minutes?',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
-$('#startRaceBtn').onclick=startRace;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
-$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[]};commitState();render()}};
+$('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
+$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null};commitState();render()}};
 $('#recalcBtn').onclick=()=>{if(!canEdit())return;state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;addLog('Schedule recalculated',false);commitState();render()};
 $('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
 $('#exportBtn').onclick=()=>{saveLocal();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dacc-race-state.json';a.click();URL.revokeObjectURL(a.href)};
 $('#importFile').onchange=async e=>{if(!canEdit())return;const f=e.target.files[0];if(!f)return;state=JSON.parse(await f.text());migrateRuntime();addLog('Imported JSON',false);commitState();render()};
 $('#strategyNotes').onchange=()=>{if(canEdit())commitState()};
-$('#createSessionBtn').onclick=createSharedSession;$('#joinActiveBtn').onclick=joinActive;
+$('#createSessionBtn').onclick=createSharedSession;$('#joinActiveBtn').onclick=joinActive;$('#tapTestBtn').onclick=()=>toast('Tap test OK — controls are responding on this device.');
 $('#joinCodeBtn').onclick=()=>joinSession($('#sessionCodeInput').value);$('#unlockControlBtn').onclick=unlockControl;
 $('#leaveSessionBtn').onclick=leaveSession;$('#copySessionBtn').onclick=copyViewerLink;
+
+
+async function voiceTextFallback(){
+  const v=await modalAsk({
+    title:'Fuel / voice command',
+    text:'On iPhone/iPad, use the keyboard microphone to dictate into this box, then press Run.',
+    input:true,
+    value:'',
+    ok:'Run'
+  });
+  if(v) parseVoice(v);
+}
+$('#voicePasteBtn').onclick=voiceTextFallback;
 
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 if(SR){
@@ -833,7 +888,7 @@ if(SR){
   rec.onstart=()=>$('#voiceBtn').classList.add('listening');rec.onend=()=>$('#voiceBtn').classList.remove('listening');
   rec.onresult=e=>parseVoice(e.results[0][0].transcript);rec.onerror=e=>$('#voiceText').textContent=`Voice error: ${e.error}`;
   $('#voiceBtn').onclick=()=>rec.start();
-}else{$('#voiceBtn').disabled=true;$('#voiceText').textContent='Voice recognition is not supported in this browser.'}
+}else{$('#voiceBtn').disabled=true;$('#voiceText').textContent='Direct voice recognition is unavailable here. Tap Voice text and use the iPhone keyboard microphone to dictate the command.'}
 
 setInterval(()=>{
   if(['LIVE','PAUSED'].includes(state.runtime.status)){
@@ -843,6 +898,21 @@ setInterval(()=>{
     render();
   }
 },1000);
+
+
+function isIOS(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+function updateMobileStatus(){
+  const el=$('#mobileStatus');
+  if(!el) return;
+  if(isIOS()){
+    el.textContent = canEdit()
+      ? 'iOS: full Race Control unlocked on this device. Fuel + Voice text remain local; race changes sync live.'
+      : 'iOS: VIEW ONLY is active. Fuel calculator, Voice text and session controls remain usable. Enter the Race Control key to unlock full editing.';
+  }else el.textContent='';
+}
 
 async function initDiscord(){
   const clientId=String(cfg.discordClientId||'').trim();
