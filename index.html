@@ -65,7 +65,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V3.8</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.0</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -89,7 +89,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 
           <div class="toolbar">
             <button class="primary" id="startRaceBtn">START RACE</button>
-            <button id="countdownBtn">START COUNTDOWN (2:00)</button>
+            <button id="countdownBtn">START PRE-RACE COUNTDOWN (2:00)</button>
             <button id="countdownSetBtn">Set countdown</button>
             <button id="pauseRaceBtn" disabled>PAUSE</button>
             <button class="good" id="pitNowBtn" disabled>PIT NOW</button>
@@ -199,7 +199,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V3.8 • start countdown • server reset/resync • iOS full control • multi-controller.</footer>
+  <footer>Race-control V4.0 • adjustable pre-start countdown • race clock starts at zero • server resync.</footer>
 </div>
 
 <script type="module">
@@ -252,6 +252,7 @@ function migrateRuntime(){
   if(!Number.isFinite(r.manualElapsedSec)) r.manualElapsedSec=Number.isFinite(r.elapsedRaceSec)?r.elapsedRaceSec:0;
   if(!Number.isFinite(r.countdownSec)) r.countdownSec=120;
   if(!Number.isFinite(r.countdownEndsAtMs)) r.countdownEndsAtMs=null;
+  if(typeof r.countdownActive!=='boolean') r.countdownActive=false;
   if(!Number.isFinite(r.serverAnchorElapsedSec)) r.serverAnchorElapsedSec=0;
   if(!Number.isFinite(r.serverAnchorClockSec)) r.serverAnchorClockSec=timeToSec(state.event.serverStart||'10:00');
   if(!Number.isFinite(r.serverRemainingAnchorSec)) r.serverRemainingAnchorSec=null;
@@ -410,6 +411,7 @@ function schedule(){
   return rows
 }
 function livePhase(sch){
+  if(state.runtime.status==='PRE-RACE' && state.runtime.countdownActive) return 'COUNTDOWN';
   if(state.runtime.status==='PRE-RACE') return 'PRE-RACE';
   if(state.runtime.status==='FINISHED') return 'FINISHED';
   const cur=Math.min(state.runtime.currentIndex,sch.length-1), elapsed=elapsedRaceSec(),r=sch[cur];
@@ -427,10 +429,10 @@ function render(){
   if(document.activeElement!==$('#pitLossSec')) $('#pitLossSec').value=e.pitLossSec;
   if(document.activeElement!==$('#raceHours')) $('#raceHours').value=e.raceHours;
   if(document.activeElement!==$('#planAvgLapSec')) $('#planAvgLapSec').value=e.avgLapSec;
-  if(document.activeElement!==$('#strategyNotes')) $('#strategyNotes').value=state.runtime.notes||''; $('#countdownBtn').textContent=`START COUNTDOWN (${Math.floor((state.runtime.countdownSec||120)/60)}:${pad((state.runtime.countdownSec||120)%60)})`;
+  if(document.activeElement!==$('#strategyNotes')) $('#strategyNotes').value=state.runtime.notes||''; $('#countdownBtn').textContent=`START PRE-RACE COUNTDOWN (${Math.floor((state.runtime.countdownSec||120)/60)}:${pad((state.runtime.countdownSec||120)%60)})`;
 
   $('#statusBadge').textContent=phase;
-  $('#statusBadge').style.color=phase==='LIVE'?'var(--good)':phase==='PAUSED'||phase==='PIT / CHANGEOVER'?'var(--warn)':phase==='FINISHED'?'var(--bad)':'var(--muted)';
+  $('#statusBadge').style.color=phase==='LIVE'?'var(--good)':phase==='PAUSED'||phase==='PIT / CHANGEOVER'||phase==='COUNTDOWN'?'var(--warn)':phase==='FINISHED'?'var(--bad)':'var(--muted)';
   $('#raceRemaining').textContent=fmtSec(Math.max(0,e.raceHours*3600-elapsed));
   const serverNowBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(e.serverStart);
   const serverNowAnchor=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
@@ -440,13 +442,16 @@ function render(){
   $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0); $('#projectedStints').textContent=`(${state.stints.length})`;
   const cdLeft = Number.isFinite(state.runtime.countdownEndsAtMs) ? Math.max(0,(state.runtime.countdownEndsAtMs-Date.now())/1000) : null;
   $('#startCountdown').textContent = cdLeft===null ? '—' : fmtSec(cdLeft);
-  if(cdLeft===0 && state.runtime.status==='PRE-RACE' && state.runtime.countdownEndsAtMs){
+  if(cdLeft===0 && state.runtime.status==='PRE-RACE' && state.runtime.countdownActive && state.runtime.countdownEndsAtMs){
     state.runtime.countdownEndsAtMs=null;
-    if(canEdit()) startRace(true);
+    state.runtime.countdownActive=false;
+    if(canEdit()){
+      startRace(true);
+    }
   }
 
   const startBtn=$('#startRaceBtn'),pauseBtn=$('#pauseRaceBtn'),pitBtn=$('#pitNowBtn');
-  startBtn.disabled=!edit||state.runtime.status!=='PRE-RACE';
+  startBtn.disabled=!edit||state.runtime.status!=='PRE-RACE'; $('#countdownBtn').disabled=!edit||state.runtime.status!=='PRE-RACE'||state.runtime.countdownActive;
   startBtn.textContent=state.runtime.status==='PRE-RACE'?'START RACE':'RACE STARTED';
   pauseBtn.disabled=!edit||!['LIVE','PAUSED'].includes(state.runtime.status);
   pauseBtn.textContent=state.runtime.status==='PAUSED'?'RESUME':'PAUSE';
@@ -465,7 +470,9 @@ function render(){
   liveBanner.classList.toggle('hidden',state.runtime.status==='PRE-RACE');
   if(state.runtime.status!=='PRE-RACE'){
     const r=sch[cur];
-    liveBanner.textContent=phase==='PIT / CHANGEOVER'
+    liveBanner.textContent=phase==='COUNTDOWN'
+      ?`PRE-RACE COUNTDOWN — ${fmtSec(Math.max(0,(state.runtime.countdownEndsAtMs-Date.now())/1000))} • race clock starts at zero`
+      :phase==='PIT / CHANGEOVER'
       ?`PIT / CHANGEOVER — ${label(r?.driver)} starts in ${fmtSec(Math.max(0,(r?.startElapsed||0)-elapsed))}`
       :phase==='FINISHED'?'RACE FINISHED'
       :`${phase} — elapsed ${fmtSec(elapsed)} • ${label(r?.driver)} • stint ${cur+1}${edit?' • future stints editable':''}`;
@@ -629,27 +636,48 @@ async function addStint(){
 async function startCountdown(){
   if(!canEdit()||state.runtime.status!=='PRE-RACE') return;
   const sec=Number(state.runtime.countdownSec)||120;
+
+  // Pre-start only: official race elapsed/server timing stays at zero until this reaches zero.
+  state.runtime.countdownActive=true;
   state.runtime.countdownEndsAtMs=Date.now()+sec*1000;
-  addLog(`Race start countdown armed: ${fmtSec(sec)}`,false);
+
+  addLog(`PRE-RACE COUNTDOWN STARTED — ${fmtSec(sec)} to race clock start`,false);
   commitState();
   render();
 }
 async function setCountdown(){
   if(!canEdit()||state.runtime.status!=='PRE-RACE') return;
-  const current=Number(state.runtime.countdownSec)||120;
+
+  const running = state.runtime.countdownActive && Number.isFinite(state.runtime.countdownEndsAtMs);
+  const current = running
+    ? Math.max(0,Math.ceil((state.runtime.countdownEndsAtMs-Date.now())/1000))
+    : (Number(state.runtime.countdownSec)||120);
+
   const v=await modalAsk({
-    title:'Set race-start countdown',
-    text:'Countdown length in seconds. Example: 120 = two minutes.',
+    title: running ? 'Adjust countdown remaining' : 'Set pre-race countdown',
+    text: running
+      ? 'Set the countdown time REMAINING in seconds. Example: 45 = race clock starts in 45 seconds.'
+      : 'Set the countdown duration in seconds. Example: 120 = two minutes.',
     input:true,
     value:String(current),
-    ok:'Set'
+    ok: running ? 'Update remaining' : 'Set'
   });
   if(v===null) return;
-  const sec=Math.max(5,Math.round(Number(v)));
+
+  const sec=Math.max(1,Math.round(Number(v)));
   if(!Number.isFinite(sec)){toast('Enter a valid number of seconds.');return}
-  state.runtime.countdownSec=sec;
-  $('#countdownBtn').textContent=`START COUNTDOWN (${Math.floor(sec/60)}:${pad(sec%60)})`;
-  commitState();render();
+
+  if(running){
+    state.runtime.countdownEndsAtMs=Date.now()+sec*1000;
+    addLog(`PRE-RACE COUNTDOWN adjusted to ${fmtSec(sec)} remaining`,false);
+  }else{
+    state.runtime.countdownSec=sec;
+    addLog(`PRE-RACE COUNTDOWN duration set to ${fmtSec(sec)}`,false);
+  }
+
+  $('#countdownBtn').textContent=`START PRE-RACE COUNTDOWN (${Math.floor((state.runtime.countdownSec||120)/60)}:${pad((state.runtime.countdownSec||120)%60)})`;
+  commitState();
+  render();
 }
 
 
@@ -717,18 +745,29 @@ async function startRace(auto=false){
     if(!ok)return;
   }
   state.runtime.status='LIVE';state.runtime.currentIndex=0;state.runtime.startedAtMs=Date.now();
-  state.runtime.startClockSec=localClockSecNow();state.runtime.countdownEndsAtMs=null;
+  state.runtime.startClockSec=localClockSecNow();state.runtime.countdownEndsAtMs=null;state.runtime.countdownActive=false;
   state.runtime.serverAnchorElapsedSec=0;
   state.runtime.serverAnchorClockSec=timeToSec(state.event.serverStart);
   state.runtime.serverRemainingAnchorSec=null;state.runtime.totalPausedMs=0;state.runtime.pausedAtMs=null;
   state.runtime.manualElapsedSec=0;state.runtime.actualStints=[{startElapsed:0}];
-  addLog(`RACE STARTED — IRL ${secToClock(state.runtime.startClockSec)} • server ${state.event.serverStart}`,false);
+  addLog(auto
+    ? `COUNTDOWN COMPLETE — RACE CLOCK STARTED • IRL ${secToClock(state.runtime.startClockSec)} • server ${state.event.serverStart}`
+    : `RACE STARTED — IRL ${secToClock(state.runtime.startClockSec)} • server ${state.event.serverStart}`,false);
   commitState();render()
 }
 function pauseResume(){
   if(!canEdit())return;
-  if(state.runtime.status==='LIVE'){state.runtime.pausedAtMs=Date.now();state.runtime.status='PAUSED';addLog('Race timer paused',false)}
-  else if(state.runtime.status==='PAUSED'){state.runtime.totalPausedMs+=Date.now()-state.runtime.pausedAtMs;state.runtime.pausedAtMs=null;state.runtime.status='LIVE';addLog('Race timer resumed',false)}
+  if(state.runtime.status==='LIVE'){
+    state.runtime.pausedAtMs=Date.now();
+    state.runtime.status='PAUSED';
+    addLog('Race timer paused',false);
+  }
+  else if(state.runtime.status==='PAUSED'){
+    state.runtime.totalPausedMs+=Date.now()-state.runtime.pausedAtMs;
+    state.runtime.pausedAtMs=null;
+    state.runtime.status='LIVE';
+    addLog('Race timer resumed',false);
+  }
   commitState();render()
 }
 function pitNow(){
@@ -962,7 +1001,7 @@ if(SR){
 }else{$('#voiceBtn').disabled=true;$('#voiceText').textContent='Direct voice recognition is unavailable here. Tap Voice text and use the iPhone keyboard microphone to dictate the command.'}
 
 setInterval(()=>{
-  if(['LIVE','PAUSED'].includes(state.runtime.status)){
+  if(['LIVE','PAUSED'].includes(state.runtime.status) || (state.runtime.status==='PRE-RACE' && state.runtime.countdownActive)){
     if(canEdit()&&state.runtime.status==='LIVE'&&elapsedRaceSec()>=state.event.raceHours*3600){
       state.runtime.status='FINISHED';addLog('Race clock reached zero — FINISHED',false);commitState();
     }
