@@ -65,7 +65,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.0</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.2</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -199,7 +199,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.0 • adjustable pre-start countdown • race clock starts at zero • server resync.</footer>
+  <footer>Race-control V4.2 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script type="module">
@@ -234,7 +234,9 @@ const shared={
   status:'LOCAL',
   lastUpdated:null,
   applyingRemote:false,
-  pushTimer:null
+  pushTimer:null,
+  localDirty:false,
+  conflictGuard:true
 };
 
 function migrateRuntime(){
@@ -256,6 +258,8 @@ function migrateRuntime(){
   if(!Number.isFinite(r.serverAnchorElapsedSec)) r.serverAnchorElapsedSec=0;
   if(!Number.isFinite(r.serverAnchorClockSec)) r.serverAnchorClockSec=timeToSec(state.event.serverStart||'10:00');
   if(!Number.isFinite(r.serverRemainingAnchorSec)) r.serverRemainingAnchorSec=null;
+  if(!r.plannedDelays || typeof r.plannedDelays!=='object') r.plannedDelays={};
+  if(!r.serverHistory || typeof r.serverHistory!=='object') r.serverHistory={};
   // PRE-RACE must always start from stint 1. Old test state from a previous build
   // should never make the planner look as though the race is already on stint 2+.
   if(r.status==='PRE-RACE'){
@@ -266,6 +270,8 @@ function migrateRuntime(){
     r.pausedAtMs=null;
     r.manualElapsedSec=0;
     r.actualStints=[];
+    r.plannedDelays={};
+    r.serverHistory={};
   }
 }
 migrateRuntime();
@@ -290,7 +296,7 @@ function setSyncStatus(status){
   shared.status=status;
   const el=$('#syncBadge');
   el.textContent=status;
-  el.style.color=status==='LIVE'?'var(--good)':status==='OFFLINE'||status==='ERROR'?'var(--bad)':status==='CONNECTING'||status==='RECONNECTING'?'var(--warn)':'var(--muted)';
+  el.style.color=status==='LIVE'?'var(--good)':status==='OFFLINE'||status==='ERROR'?'var(--bad)':status==='CONNECTING'||status==='RECONNECTING'||status==='CONFLICT'?'var(--warn)':'var(--muted)';
 }
 function toast(msg, ms=3200){
   const el=$('#toast'); el.textContent=msg; el.classList.remove('hidden');
@@ -346,6 +352,7 @@ function renderLog(){
 function commitState(){
   state.runtime.notes=$('#strategyNotes').value;
   saveLocal();
+  shared.localDirty=true;
   if(shared.code && shared.isController && !shared.applyingRemote){
     clearTimeout(shared.pushTimer);
     shared.pushTimer=setTimeout(pushSharedState,180);
@@ -358,7 +365,9 @@ function applyRemote(remoteState,updatedAt){
   migrateRuntime();
   saveLocal();
   shared.lastUpdated=updatedAt||new Date().toISOString();
+  shared.localDirty=false;
   render();
+  updateCountdownDisplay();
   shared.applyingRemote=false;
 }
 
@@ -396,11 +405,15 @@ function schedule(){
     if(Number.isFinite(actual.startElapsed)) startElapsed=actual.startElapsed;
     else if(i===0) startElapsed=0;
     else startElapsed=rows[i-1].finishElapsed+pit;
+    if(!Number.isFinite(actual.startElapsed)) startElapsed += Number(state.runtime.plannedDelays?.[i]||0);
     const plannedDrive=st.laps*lap;
     const finishElapsed=Number.isFinite(actual.finishElapsed)?actual.finishElapsed:startElapsed+plannedDrive;
     const drive=finishElapsed-startElapsed;
     const irlStart=baseClock+startElapsed,irlFinish=baseClock+finishElapsed;
-    const serverStart=serverBase+(startElapsed-serverAnchorElapsed),serverFinish=serverBase+(finishElapsed-serverAnchorElapsed);
+    const hist=state.runtime.serverHistory?.[i];
+    const computedServerStart=serverBase+(startElapsed-serverAnchorElapsed),computedServerFinish=serverBase+(finishElapsed-serverAnchorElapsed);
+    const serverStart=Number.isFinite(hist?.serverStart)?hist.serverStart:computedServerStart;
+    const serverFinish=Number.isFinite(hist?.serverFinish)?hist.serverFinish:computedServerFinish;
     rows.push({...st,i,start:irlStart,finish:irlFinish,serverStart,serverFinish,startElapsed,finishElapsed,
       remaining:Number.isFinite(state.runtime.serverRemainingAnchorSec)
         ? Math.max(0,state.runtime.serverRemainingAnchorSec-(startElapsed-serverAnchorElapsed))
@@ -418,6 +431,47 @@ function livePhase(sch){
   if(r&&elapsed<r.startElapsed) return 'PIT / CHANGEOVER';
   if(elapsed>=state.event.raceHours*3600) return 'FINISHED';
   return state.runtime.status;
+}
+
+
+let countdownZeroHandled=false;
+
+function updateCountdownDisplay(){
+  const el=$('#startCountdown');
+  if(!el) return;
+
+  const active = state.runtime.status==='PRE-RACE'
+    && state.runtime.countdownActive
+    && Number.isFinite(state.runtime.countdownEndsAtMs);
+
+  if(!active){
+    el.textContent='—';
+    countdownZeroHandled=false;
+    return;
+  }
+
+  const msLeft=Math.max(0,state.runtime.countdownEndsAtMs-Date.now());
+  const secLeft=msLeft/1000;
+  el.textContent=fmtSec(Math.ceil(secLeft));
+
+  // Keep the visible banner live without forcing a full render.
+  const liveBanner=$('#liveBanner');
+  if(liveBanner){
+    liveBanner.classList.remove('hidden');
+    liveBanner.textContent=`PRE-RACE COUNTDOWN — ${fmtSec(Math.ceil(secLeft))} • race clock starts at zero`;
+  }
+
+  if(msLeft<=0 && !countdownZeroHandled){
+    countdownZeroHandled=true;
+
+    // Only a controller starts the shared race state.
+    // Viewers keep showing 00:00 until the controller's shared update arrives.
+    if(canEdit()){
+      state.runtime.countdownEndsAtMs=null;
+      state.runtime.countdownActive=false;
+      startRace(true);
+    }
+  }
 }
 
 function render(){
@@ -440,15 +494,7 @@ function render(){
   $('#plannedFinish').textContent=secToClock(sch.at(-1)?.finish||0);
   $('#currentStintNo').textContent=phase==='PIT / CHANGEOVER'?`PIT→${cur+1}`:(cur+1);
   $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0); $('#projectedStints').textContent=`(${state.stints.length})`;
-  const cdLeft = Number.isFinite(state.runtime.countdownEndsAtMs) ? Math.max(0,(state.runtime.countdownEndsAtMs-Date.now())/1000) : null;
-  $('#startCountdown').textContent = cdLeft===null ? '—' : fmtSec(cdLeft);
-  if(cdLeft===0 && state.runtime.status==='PRE-RACE' && state.runtime.countdownActive && state.runtime.countdownEndsAtMs){
-    state.runtime.countdownEndsAtMs=null;
-    state.runtime.countdownActive=false;
-    if(canEdit()){
-      startRace(true);
-    }
-  }
+  updateCountdownDisplay();
 
   const startBtn=$('#startRaceBtn'),pauseBtn=$('#pauseRaceBtn'),pitBtn=$('#pitNowBtn');
   startBtn.disabled=!edit||state.runtime.status!=='PRE-RACE'; $('#countdownBtn').disabled=!edit||state.runtime.status!=='PRE-RACE'||state.runtime.countdownActive;
@@ -456,9 +502,11 @@ function render(){
   pauseBtn.disabled=!edit||!['LIVE','PAUSED'].includes(state.runtime.status);
   pauseBtn.textContent=state.runtime.status==='PAUSED'?'RESUME':'PAUSE';
   pitBtn.disabled=!edit||state.runtime.status!=='LIVE'||phase==='PIT / CHANGEOVER';
-  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','serverResyncBtn','advanceBtn','addStintBtn','countdownBtn','countdownSetBtn','resetBtn','recalcBtn','saveBtn']){
+  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','serverResyncBtn','advanceBtn','addStintBtn','resetBtn','recalcBtn','saveBtn']){
     $('#'+id).disabled=!edit;
   }
+  $('#countdownBtn').disabled=!edit || state.runtime.status!=='PRE-RACE' || state.runtime.countdownActive;
+  $('#countdownSetBtn').disabled=!edit || state.runtime.status!=='PRE-RACE';
   $('#importFile').disabled=!edit;
   for(const id of ['irlStart','pitLossSec','raceHours','planAvgLapSec']) $('#'+id).disabled=!edit;
   $('#strategyNotes').disabled=!edit;
@@ -467,11 +515,11 @@ function render(){
   }
 
   const liveBanner=$('#liveBanner');
-  liveBanner.classList.toggle('hidden',state.runtime.status==='PRE-RACE');
+  liveBanner.classList.toggle('hidden',state.runtime.status==='PRE-RACE' && !state.runtime.countdownActive);
   if(state.runtime.status!=='PRE-RACE'){
     const r=sch[cur];
     liveBanner.textContent=phase==='COUNTDOWN'
-      ?`PRE-RACE COUNTDOWN — ${fmtSec(Math.max(0,(state.runtime.countdownEndsAtMs-Date.now())/1000))} • race clock starts at zero`
+      ?`PRE-RACE COUNTDOWN — ${fmtSec(Math.ceil(Math.max(0,(state.runtime.countdownEndsAtMs-Date.now())/1000)))} • race clock starts at zero`
       :phase==='PIT / CHANGEOVER'
       ?`PIT / CHANGEOVER — ${label(r?.driver)} starts in ${fmtSec(Math.max(0,(r?.startElapsed||0)-elapsed))}`
       :phase==='FINISHED'?'RACE FINISHED'
@@ -644,6 +692,7 @@ async function startCountdown(){
   addLog(`PRE-RACE COUNTDOWN STARTED — ${fmtSec(sec)} to race clock start`,false);
   commitState();
   render();
+  updateCountdownDisplay();
 }
 async function setCountdown(){
   if(!canEdit()||state.runtime.status!=='PRE-RACE') return;
@@ -678,6 +727,7 @@ async function setCountdown(){
   $('#countdownBtn').textContent=`START PRE-RACE COUNTDOWN (${Math.floor((state.runtime.countdownSec||120)/60)}:${pad((state.runtime.countdownSec||120)%60)})`;
   commitState();
   render();
+  updateCountdownDisplay();
 }
 
 
@@ -701,6 +751,15 @@ async function serverResync(){
   if(!['CLOCK','REMAINING'].includes(m)){toast('Enter CLOCK or REMAINING.');return}
 
   const elapsed=elapsedRaceSec();
+  // Freeze completed server history before moving the server anchor.
+  state.runtime.serverHistory ||= {};
+  const preResyncSchedule=schedule();
+  preResyncSchedule.forEach((row,i)=>{
+    const actual=state.runtime.actualStints[i]||{};
+    if(Number.isFinite(actual.finishElapsed)){
+      state.runtime.serverHistory[i]={serverStart:row.serverStart,serverFinish:row.serverFinish};
+    }
+  });
 
   if(m==='CLOCK'){
     const current=secToClock(
@@ -775,6 +834,13 @@ function pitNow(){
   const i=state.runtime.currentIndex,sch=schedule(),elapsed=elapsedRaceSec(),r=sch[i];
   if(!r||elapsed<r.startElapsed)return;
   state.runtime.actualStints[i]||={startElapsed:r.startElapsed};state.runtime.actualStints[i].finishElapsed=elapsed;
+  const anchorBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
+  const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
+  state.runtime.serverHistory ||= {};
+  state.runtime.serverHistory[i]={
+    serverStart:r.serverStart,
+    serverFinish:anchorBase+(elapsed-anchorElapsed)
+  };
   addLog(`PIT NOW — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(elapsed)}`,false);
   if(i>=state.stints.length-1){state.runtime.status='FINISHED';addLog('Final stint complete — FINISHED',false)}
   else{
@@ -787,10 +853,15 @@ function pitNow(){
 function delaySchedule(mins){
   if(!canEdit()||!Number.isFinite(mins))return;
   const sec=mins*60;
-  if(state.runtime.status==='PRE-RACE'){state.event.irlStart=secToClock(timeToSec(state.event.irlStart)+sec).slice(0,5);addLog(`Planned race start delayed ${mins} min`,false)}
-  else{
-    const i=state.runtime.currentIndex,r=state.runtime.actualStints[i]||={},sch=schedule(),base=Number.isFinite(r.startElapsed)?r.startElapsed:sch[i].startElapsed;
-    r.startElapsed=base+sec;state.runtime.actualStints[i]=r;addLog(`Current/downstream schedule delayed ${mins} min`,false)
+  if(state.runtime.status==='PRE-RACE'){
+    state.event.irlStart=secToClock(timeToSec(state.event.irlStart)+sec).slice(0,5);
+    addLog(`Planned race start delayed ${mins} min`,false);
+  }else{
+    const target=Math.min(state.stints.length-1,state.runtime.currentIndex+1);
+    if(target<=state.runtime.currentIndex || target>=state.stints.length){toast('No future stint available to delay.');return}
+    state.runtime.plannedDelays ||= {};
+    state.runtime.plannedDelays[target]=Number(state.runtime.plannedDelays[target]||0)+sec;
+    addLog(`Future schedule delayed ${mins} min from stint ${target+1}; current/completed timing preserved`,false);
   }
   commitState();render()
 }
@@ -849,9 +920,13 @@ async function pollShared(){
     const row=Array.isArray(data)?data[0]:null;
     if(!row){setSyncStatus('OFFLINE');return}
     if(!shared.lastUpdated || row.updated_at!==shared.lastUpdated){
-      applyRemote(row.state,row.updated_at);
+      if(shared.localDirty && shared.isController){
+        setSyncStatus('CONFLICT');
+      }else{
+        applyRemote(row.state,row.updated_at);
+      }
     }
-    setSyncStatus('LIVE');
+    if(shared.status!=='CONFLICT') setSyncStatus('LIVE');
   }catch(err){console.error(err);setSyncStatus('RECONNECTING')}
 }
 async function subscribeShared(){
@@ -950,11 +1025,23 @@ async function pushSharedState(){
   if(!shared.supabase||!shared.code||!shared.isController)return;
   setSyncStatus('CONNECTING');
   try{
+    if(shared.conflictGuard && shared.lastUpdated){
+      const enc=encodeURIComponent(shared.code);
+      const latestData=await supa(`dacc_race_sessions?select=state,updated_at&code=eq.${enc}&is_active=eq.true&limit=1`);
+      const latest=Array.isArray(latestData)?latestData[0]:null;
+      if(latest && latest.updated_at && latest.updated_at!==shared.lastUpdated){
+        applyRemote(latest.state,latest.updated_at);
+        setSyncStatus('LIVE');
+        toast('Another Race Control device changed the race first. Latest state loaded — please repeat your last action.',6500);
+        return;
+      }
+    }
     const data=await supa('rpc/dacc_update_race_state',{
       method:'POST',body:{p_code:shared.code,p_control_key:shared.controlKey,p_state:state}
     });
     const row=Array.isArray(data)?data[0]:data;
     shared.lastUpdated=row?.updated_at||new Date().toISOString();
+    shared.localDirty=false;
     setSyncStatus('LIVE');renderSharedMeta();
   }catch(err){console.error(err);setSyncStatus('OFFLINE');toast(`Sync failed: ${err.message}`,4500)}
 }
@@ -967,9 +1054,9 @@ $('#minusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.c
 $('#advanceBtn').onclick=()=>{if(!canEdit())return;if(state.runtime.status==='LIVE'){pitNow();return}state.runtime.currentIndex=Math.min(state.stints.length-1,state.runtime.currentIndex+1);addLog(`Advanced to stint ${state.runtime.currentIndex+1}`,false);commitState();render()};
 $('#pitNowBtn').onclick=pitNow;
 $('#serverResyncBtn').onclick=serverResync;
-$('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay current/downstream schedule by how many minutes?',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
+$('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay FUTURE planned schedule by how many minutes? Current/completed timing is preserved.',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
-$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null};commitState();render()}};
+$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null};commitState();render()}};
 $('#recalcBtn').onclick=()=>{if(!canEdit())return;state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;addLog('Schedule recalculated',false);commitState();render()};
 $('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
 $('#exportBtn').onclick=()=>{saveLocal();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dacc-race-state.json';a.click();URL.revokeObjectURL(a.href)};
@@ -1000,8 +1087,12 @@ if(SR){
   $('#voiceBtn').onclick=()=>rec.start();
 }else{$('#voiceBtn').disabled=true;$('#voiceText').textContent='Direct voice recognition is unavailable here. Tap Voice text and use the iPhone keyboard microphone to dictate the command.'}
 
+// Dedicated countdown ticker: works smoothly on desktop, iOS and VIEW ONLY clients.
+setInterval(updateCountdownDisplay,250);
+
+// Main race UI refresh.
 setInterval(()=>{
-  if(['LIVE','PAUSED'].includes(state.runtime.status) || (state.runtime.status==='PRE-RACE' && state.runtime.countdownActive)){
+  if(['LIVE','PAUSED'].includes(state.runtime.status)){
     if(canEdit()&&state.runtime.status==='LIVE'&&elapsedRaceSec()>=state.event.raceHours*3600){
       state.runtime.status='FINISHED';addLog('Race clock reached zero — FINISHED',false);commitState();
     }
