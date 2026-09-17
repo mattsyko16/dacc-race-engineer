@@ -60,14 +60,15 @@ textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;
 footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 .brakewarn{margin-top:8px;padding:8px 10px;border:1px solid #f8c555;border-radius:9px;background:#3a2d0b;color:#ffe3a3;font-weight:800;letter-spacing:.2px}
 .brakeflag{font-weight:800;color:#f8c555}
-.incidentlog{display:flex;flex-direction:column;gap:8px}.incidentrow{display:grid;grid-template-columns:110px 140px 1fr auto;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line)}.incidenttime{color:var(--muted);font-size:12px}.incidentdriver{font-weight:700}.incidenttext{white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.incidentrow{grid-template-columns:1fr}.incidenttime{font-size:11px}}</style>
+.incidentlog{display:flex;flex-direction:column;gap:8px}.incidentrow{display:grid;grid-template-columns:105px 70px 70px 140px 1fr auto;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line)}.incidenttime{color:var(--muted);font-size:12px}.incidentdriver{font-weight:700}.incidenttext{white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.incidentrow{grid-template-columns:1fr}.incidenttime{font-size:11px}}.finish-green{border-color:var(--good)!important;background:#10271f!important}.finish-green .value{color:#6ee7b7}.finish-yellow{border-color:var(--warn)!important;background:#302815!important}.finish-yellow .value{color:#ffdb7c}.finish-red{border-color:var(--bad)!important;background:#321b1b!important}.finish-red .value{color:#ff9b9b}.finishmargin{font-size:11px;margin-top:4px;color:var(--muted)}
+</style>
 </head>
 <body>
 <script src="./config.js"></script>
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.5</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.6</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -78,7 +79,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="kpis">
             <div class="kpi"><div class="label">Race remaining</div><div class="value" id="raceRemaining">--:--:--</div></div>
             <div class="kpi"><div class="label">Server clock</div><div class="value" id="serverClock">--:--:--</div></div>
-            <div class="kpi"><div class="label">IRL projected finish</div><div class="value" id="plannedFinish">--:--</div></div>
+            <div class="kpi" id="projectedFinishKpi"><div class="label">Server projected finish</div><div class="value" id="plannedFinish">--:--</div><div class="finishmargin" id="finishMargin">—</div></div>
             <div class="kpi"><div class="label">Current stint</div><div class="value" id="currentStintNo">1</div></div><div class="kpi"><div class="label">Start countdown</div><div class="value" id="startCountdown">—</div></div>
             <div class="kpi"><div class="label">Projected laps / stints</div><div class="value"><span id="projectedLaps">0</span> <span style="font-size:13px;color:var(--muted)" id="projectedStints"></span></div></div>
           </div>
@@ -199,8 +200,10 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
         <h2>Incident Log</h2>
         <div class="cardbody">
           <div class="sidegrid">
+            <div class="field"><label>Car #</label><input id="incidentCar" type="text" inputmode="numeric" placeholder="48"/></div>
+            <div class="field"><label>Lap</label><input id="incidentLap" type="number" min="1" step="1" placeholder="e.g. 214"/></div>
             <div class="field"><label>Driver</label><select id="incidentDriver"></select></div>
-            <div class="field" style="grid-column:span 2"><label>Incident / note</label><input id="incidentText" type="text" placeholder="e.g. Contact T1, light front damage, no pit required"/></div>
+            <div class="field" style="grid-column:1/-1"><label>Incident / note</label><input id="incidentText" type="text" placeholder="e.g. Contact T1, light front damage, no pit required"/></div>
           </div>
           <div class="toolbar" style="margin-top:8px">
             <button id="addIncidentBtn">+ Add Incident</button>
@@ -218,7 +221,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.5 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.6 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script type="module">
@@ -367,7 +370,7 @@ function renderLog(){
   const el=$('#raceLog');
   el.innerHTML=(state.runtime.log||[]).map(x=>{
     const t=new Date(x.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    return `<div>${t} — ${x.msg}</div>`
+    return `<div>${t} — ${escapeHtml(x.msg)}</div>`
   }).join('');
 }
 function commitState(){
@@ -381,6 +384,8 @@ function commitState(){
 }
 function applyRemote(remoteState,updatedAt){
   if(!remoteState) return;
+  const previousState=state;
+  notifyFromRemote(previousState,remoteState);
   shared.applyingRemote=true;
   state=remoteState;
   migrateRuntime();
@@ -523,7 +528,7 @@ function renderIncidentLog(){
   box.innerHTML=a.slice().reverse().map((x,ri)=>{
     const i=a.length-1-ri;
     const del=canEdit()?`<button data-delincident="${i}" title="Delete incident">×</button>`:'';
-    return `<div class="incidentrow"><div class="incidenttime">${x.irlClock||'—'}<br>Race +${Number.isFinite(x.raceElapsedSec)?fmtSec(x.raceElapsedSec):'—'}</div><div class="incidentdriver">${escapeHtml(label(x.driver)||x.driver||'—')}</div><div class="incidenttext">${escapeHtml(x.text||'')}</div><div>${del}</div></div>`;
+    return `<div class="incidentrow"><div class="incidenttime">${x.irlClock||'—'}<br>Race +${Number.isFinite(x.raceElapsedSec)?fmtSec(x.raceElapsedSec):'—'}</div><div><strong>Car</strong><br>${escapeHtml(x.carNo||'—')}</div><div><strong>Lap</strong><br>${escapeHtml(x.lap||'—')}</div><div class="incidentdriver">${escapeHtml(label(x.driver)||x.driver||'—')}</div><div class="incidenttext">${escapeHtml(x.text||'')}</div><div>${del}</div></div>`;
   }).join('');
   box.querySelectorAll('[data-delincident]').forEach(b=>b.onclick=()=>{
     if(!canEdit())return;
@@ -534,27 +539,33 @@ function renderIncidentLog(){
 async function addIncident(){
   if(!canEdit()){toast('Unlock Race Control to add an incident.');return;}
   const driver=$('#incidentDriver')?.value||state.stints[state.runtime.currentIndex]?.driver||'';
+  const carNo=String($('#incidentCar')?.value||'').trim();
+  const lapRaw=String($('#incidentLap')?.value||'').trim();
+  const lap=lapRaw?Math.max(1,Math.round(Number(lapRaw)||1)):'';
   const text=String($('#incidentText')?.value||'').trim();
   if(!text){toast('Enter an incident note first.');return;}
+  if(carNo) localStorage.setItem('dacc-incident-car',carNo);
   if(!Array.isArray(state.runtime.incidents))state.runtime.incidents=[];
   state.runtime.incidents.push({
-    id:`inc_${Date.now()}`,driver,text,createdAtMs:Date.now(),
+    id:`inc_${Date.now()}`,driver,carNo,lap,text,createdAtMs:Date.now(),
     irlClock:secToClock(localClockSecNow()),
     raceElapsedSec:elapsedRaceSec(),
     raceRemainingSec:raceRemainingSec()
   });
   addLog(`INCIDENT: ${label(driver)} — ${text}`,false);
-  $('#incidentText').value='';
+  $('#incidentText').value=''; if($('#incidentLap')) $('#incidentLap').value='';
   commitState(); renderIncidentLog(); toast('Incident saved.');
 }
 function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function saveIncidentsCSV(){
   const a=Array.isArray(state.runtime.incidents)?state.runtime.incidents:[];
-  const rows=[['IRL time','Race elapsed','Race remaining','Driver','Incident']];
+  const rows=[['IRL time','Race elapsed','Race remaining','Car #','Lap','Driver','Incident']];
   a.forEach(x=>rows.push([
     x.irlClock||'',
     Number.isFinite(x.raceElapsedSec)?fmtSec(x.raceElapsedSec):'',
     Number.isFinite(x.raceRemainingSec)?fmtSec(x.raceRemainingSec):'',
+    x.carNo||'',
+    x.lap||'',
     label(x.driver)||x.driver||'',
     x.text||''
   ]));
@@ -564,6 +575,29 @@ function saveIncidentsCSV(){
   ael.download=`DACC_Incidents_${shared.code||'race'}.csv`;
   document.body.appendChild(ael);ael.click();
   setTimeout(()=>{URL.revokeObjectURL(ael.href);ael.remove()},250);
+}
+
+
+function notificationsSupported(){return 'Notification' in window;}
+function notificationsEnabled(){return notificationsSupported() && Notification.permission==='granted' && localStorage.getItem('dacc-notifications')==='1';}
+async function enableNotifications(){
+  if(!notificationsSupported()){toast('Browser notifications are not supported on this device.');return;}
+  const p=await Notification.requestPermission();
+  if(p==='granted'){localStorage.setItem('dacc-notifications','1');toast('Notifications enabled while the app is open or in the background.');}
+  else {localStorage.removeItem('dacc-notifications');toast('Notification permission was not granted.');}
+  updateNotifyButton();
+}
+function updateNotifyButton(){const b=$('#notifyBtn');if(b)b.textContent=notificationsEnabled()?'Notifications ON':'Enable notifications';}
+function notifyRace(title,body){if(!notificationsEnabled())return;try{new Notification(title,{body,tag:`dacc-${title}`});}catch(e){console.warn(e)}}
+function notifyFromRemote(prev,next){
+  if(!prev||!next||!notificationsEnabled())return;
+  const pi=prev.runtime?.currentIndex??0, ni=next.runtime?.currentIndex??0;
+  if(ni>pi){const c=next.stints?.[ni],n=next.stints?.[ni+1];notifyRace('DACC stint change',`${label(c?.driver)||'Driver'} now in car${n?` • Next: ${label(n.driver)}`:''}`)}
+  if(prev.runtime?.status!=='LIVE'&&next.runtime?.status==='LIVE')notifyRace('DACC Race','Race clock is LIVE');
+  const pa=prev.runtime?.incidents||[],na=next.runtime?.incidents||[];
+  if(na.length>pa.length){const x=na[na.length-1];notifyRace('DACC incident',`${label(x.driver)||'Driver'}${x.carNo?` • Car ${x.carNo}`:''}${x.lap?` • Lap ${x.lap}`:''}: ${x.text||''}`)}
+  const nextDrv=next.stints?.[ni+1],prevNext=prev.stints?.[pi+1];
+  if(nextDrv?.brakeChangeAfter&&(!prevNext?.brakeChangeAfter||ni!==pi))notifyRace('DACC brake change',`${label(nextDrv.driver)}: change brakes at end of your upcoming stint`);
 }
 
 function render(){
@@ -583,7 +617,22 @@ function render(){
   const serverNowBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(e.serverStart);
   const serverNowAnchor=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   $('#serverClock').textContent=secToClock(serverNowBase+(elapsed-serverNowAnchor));
-  $('#plannedFinish').textContent=secToClock(sch.at(-1)?.finish||0);
+  const lastRow=sch.at(-1);
+  $('#plannedFinish').textContent=secToClock(lastRow?.serverFinish||0);
+  const projectedRemaining=Math.max(0,(lastRow?.finishElapsed||0)-elapsed);
+  const finishDelta=projectedRemaining-raceRemainingSec();
+  const finishKpi=$('#projectedFinishKpi');
+  finishKpi.classList.remove('finish-green','finish-yellow','finish-red');
+  if(finishDelta<0){
+    finishKpi.classList.add('finish-red');
+    $('#finishMargin').textContent=`${fmtSec(Math.abs(finishDelta))} SHORT of full distance`;
+  }else if(finishDelta<=300){
+    finishKpi.classList.add('finish-green');
+    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance`;
+  }else{
+    finishKpi.classList.add('finish-yellow');
+    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance`;
+  }
   $('#currentStintNo').textContent=phase==='PIT / CHANGEOVER'?`PIT→${cur+1}`:(cur+1);
   $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0); $('#projectedStints').textContent=`(${state.stints.length})`;
   updateCountdownDisplay();
@@ -631,7 +680,7 @@ function render(){
   const tbody=$('#stintTable tbody');tbody.innerHTML='';
   sch.forEach((r,i)=>{
     const tr=document.createElement('tr');
-    if(i===cur&&state.runtime.status!=='FINISHED') tr.classList.add('active-row'); else if(!r.avail) tr.classList.add('bad-row');
+    if(i===cur&&state.runtime.status!=='FINISHED') tr.classList.add('active-row');
     const opts=state.drivers.map(d=>`<option value="${d.id}" ${d.id===r.driver?'selected':''}>${d.label}</option>`).join('');
     const rowState=r.isActualFinish?'<span style="color:var(--good)">ACTUAL</span>':
       (i===cur&&state.runtime.status!=='PRE-RACE'?'<span style="color:var(--accent)">LIVE</span>':
@@ -682,7 +731,7 @@ function render(){
   if(scheduleOverrun>0) warnings.push(`Projected schedule is ${fmtSec(scheduleOverrun)} longer than the ${e.raceHours}h race.`);
   $('#availWarning').classList.toggle('hidden',!warnings.length);
   $('#availWarning').textContent=warnings.join(' ');
-  renderLog();renderIncidentLog();renderSharedMeta();updateMobileStatus();
+  renderLog();renderIncidentLog();renderSharedMeta();updateMobileStatus();updateNotifyButton();
 }
 function move(i,d){
   if(!canEdit()) return;
@@ -1213,6 +1262,7 @@ $('#pitNowBtn').onclick=pitNow;
 $('#serverResyncBtn').onclick=serverResync;
 $('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay FUTURE planned schedule by how many minutes? Current/completed timing is preserved.',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
 $('#brakePlanBtn').onclick=configureBrakePlan;
+$('#notifyBtn').onclick=enableNotifications;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null};commitState();render()}};
@@ -1284,7 +1334,7 @@ async function initDiscord(){
 }
 
 const _modal=$('#modalBack'); if(_modal){_modal.style.display='none';_modal.classList.add('hidden');}
-const ie=$('#incidentText');if(ie)ie.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addIncident();}});initCalcInputs();render();calculateFuel();initDiscord();
+const ie=$('#incidentText');if(ie)ie.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addIncident();}});const ic=$('#incidentCar');if(ic&&!ic.value)ic.value=localStorage.getItem('dacc-incident-car')||'48';initCalcInputs();render();calculateFuel();initDiscord();
 if(isDiscordActivityHost()){
   $('#sharedHelp').textContent='Discord Activity mode: shared state uses the /supabase URL Mapping.';
 }
