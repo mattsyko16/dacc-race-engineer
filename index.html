@@ -60,14 +60,14 @@ textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;
 footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 .brakewarn{margin-top:8px;padding:8px 10px;border:1px solid #f8c555;border-radius:9px;background:#3a2d0b;color:#ffe3a3;font-weight:800;letter-spacing:.2px}
 .brakeflag{font-weight:800;color:#f8c555}
-</style>
+.incidentlog{display:flex;flex-direction:column;gap:8px}.incidentrow{display:grid;grid-template-columns:110px 140px 1fr auto;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line)}.incidenttime{color:var(--muted);font-size:12px}.incidentdriver{font-weight:700}.incidenttext{white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.incidentrow{grid-template-columns:1fr}.incidenttime{font-size:11px}}</style>
 </head>
 <body>
 <script src="./config.js"></script>
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.4</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.5</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -195,13 +195,30 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
         </div>
       </section>
 
+      <section class="card" id="incidentCard" style="margin-top:12px">
+        <h2>Incident Log</h2>
+        <div class="cardbody">
+          <div class="sidegrid">
+            <div class="field"><label>Driver</label><select id="incidentDriver"></select></div>
+            <div class="field" style="grid-column:span 2"><label>Incident / note</label><input id="incidentText" type="text" placeholder="e.g. Contact T1, light front damage, no pit required"/></div>
+          </div>
+          <div class="toolbar" style="margin-top:8px">
+            <button id="addIncidentBtn">+ Add Incident</button>
+            <button id="saveIncidentsBtn">Save Incidents CSV</button>
+            <button id="clearIncidentInputBtn">Clear input</button>
+          </div>
+          <div class="sub" style="margin-top:8px">Shared and saved with the live race session. Adding/removing incidents requires Race Control access.</div>
+          <div id="incidentList" class="incidentlog" style="margin-top:10px"></div>
+        </div>
+      </section>
+
       <section class="card" style="margin-top:12px">
         <h2>Race Log</h2>
         <div class="cardbody"><div class="log" id="raceLog"></div></div>
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.4 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.5 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script type="module">
@@ -262,6 +279,7 @@ function migrateRuntime(){
   if(!Number.isFinite(r.serverRemainingAnchorSec)) r.serverRemainingAnchorSec=null;
   if(!r.plannedDelays || typeof r.plannedDelays!=='object') r.plannedDelays={};
   if(!r.serverHistory || typeof r.serverHistory!=='object') r.serverHistory={};
+  if(!Array.isArray(r.incidents)) r.incidents=[];
   state.stints.forEach(s=>{ if(typeof s.brakeChangeAfter!=='boolean') s.brakeChangeAfter=false; });
   // PRE-RACE must always start from stint 1. Old test state from a previous build
   // should never make the planner look as though the race is already on stint 2+.
@@ -488,6 +506,66 @@ function raceRemainingSec(){
   return Math.max(0,state.event.raceHours*3600-elapsed);
 }
 
+
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function incidentDriverOptions(){
+  const sel=$('#incidentDriver'); if(!sel)return;
+  const old=sel.value;
+  sel.innerHTML=state.drivers.map(d=>`<option value="${d.id}">${d.label}</option>`).join('');
+  if(old && state.drivers.some(d=>d.id===old)) sel.value=old;
+  else { const cur=state.stints[state.runtime.currentIndex]?.driver; if(cur) sel.value=cur; }
+}
+function renderIncidentLog(){
+  const box=$('#incidentList'); if(!box)return;
+  incidentDriverOptions();
+  const a=Array.isArray(state.runtime.incidents)?state.runtime.incidents:[];
+  if(!a.length){box.innerHTML='<div class="sub">No incidents logged.</div>';return;}
+  box.innerHTML=a.slice().reverse().map((x,ri)=>{
+    const i=a.length-1-ri;
+    const del=canEdit()?`<button data-delincident="${i}" title="Delete incident">×</button>`:'';
+    return `<div class="incidentrow"><div class="incidenttime">${x.irlClock||'—'}<br>Race +${Number.isFinite(x.raceElapsedSec)?fmtSec(x.raceElapsedSec):'—'}</div><div class="incidentdriver">${escapeHtml(label(x.driver)||x.driver||'—')}</div><div class="incidenttext">${escapeHtml(x.text||'')}</div><div>${del}</div></div>`;
+  }).join('');
+  box.querySelectorAll('[data-delincident]').forEach(b=>b.onclick=()=>{
+    if(!canEdit())return;
+    state.runtime.incidents.splice(+b.dataset.delincident,1);
+    commitState(); renderIncidentLog();
+  });
+}
+async function addIncident(){
+  if(!canEdit()){toast('Unlock Race Control to add an incident.');return;}
+  const driver=$('#incidentDriver')?.value||state.stints[state.runtime.currentIndex]?.driver||'';
+  const text=String($('#incidentText')?.value||'').trim();
+  if(!text){toast('Enter an incident note first.');return;}
+  if(!Array.isArray(state.runtime.incidents))state.runtime.incidents=[];
+  state.runtime.incidents.push({
+    id:`inc_${Date.now()}`,driver,text,createdAtMs:Date.now(),
+    irlClock:secToClock(localClockSecNow()),
+    raceElapsedSec:elapsedRaceSec(),
+    raceRemainingSec:raceRemainingSec()
+  });
+  addLog(`INCIDENT: ${label(driver)} — ${text}`,false);
+  $('#incidentText').value='';
+  commitState(); renderIncidentLog(); toast('Incident saved.');
+}
+function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
+function saveIncidentsCSV(){
+  const a=Array.isArray(state.runtime.incidents)?state.runtime.incidents:[];
+  const rows=[['IRL time','Race elapsed','Race remaining','Driver','Incident']];
+  a.forEach(x=>rows.push([
+    x.irlClock||'',
+    Number.isFinite(x.raceElapsedSec)?fmtSec(x.raceElapsedSec):'',
+    Number.isFinite(x.raceRemainingSec)?fmtSec(x.raceRemainingSec):'',
+    label(x.driver)||x.driver||'',
+    x.text||''
+  ]));
+  const blob=new Blob([rows.map(r=>r.map(csvEscape).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const ael=document.createElement('a');
+  ael.href=URL.createObjectURL(blob);
+  ael.download=`DACC_Incidents_${shared.code||'race'}.csv`;
+  document.body.appendChild(ael);ael.click();
+  setTimeout(()=>{URL.revokeObjectURL(ael.href);ael.remove()},250);
+}
+
 function render(){
   const sch=schedule(),e=state.event,cur=state.runtime.status==='PRE-RACE'?0:Math.min(state.runtime.currentIndex,Math.max(0,sch.length-1));
   const elapsed=elapsedRaceSec(),phase=livePhase(sch),edit=canEdit();
@@ -516,7 +594,7 @@ function render(){
   pauseBtn.disabled=!edit||!['LIVE','PAUSED'].includes(state.runtime.status);
   pauseBtn.textContent=state.runtime.status==='PAUSED'?'RESUME':'PAUSE';
   pitBtn.disabled=!edit||state.runtime.status!=='LIVE'||phase==='PIT / CHANGEOVER';
-  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','serverResyncBtn','advanceBtn','addStintBtn','brakePlanBtn','resetBtn','recalcBtn','saveBtn']){
+  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','serverResyncBtn','advanceBtn','addStintBtn','brakePlanBtn','addIncidentBtn','resetBtn','recalcBtn','saveBtn']){
     $('#'+id).disabled=!edit;
   }
   $('#countdownBtn').disabled=!edit || state.runtime.status!=='PRE-RACE' || state.runtime.countdownActive;
@@ -604,7 +682,7 @@ function render(){
   if(scheduleOverrun>0) warnings.push(`Projected schedule is ${fmtSec(scheduleOverrun)} longer than the ${e.raceHours}h race.`);
   $('#availWarning').classList.toggle('hidden',!warnings.length);
   $('#availWarning').textContent=warnings.join(' ');
-  renderLog();renderSharedMeta();updateMobileStatus();
+  renderLog();renderIncidentLog();renderSharedMeta();updateMobileStatus();
 }
 function move(i,d){
   if(!canEdit()) return;
@@ -1135,6 +1213,7 @@ $('#pitNowBtn').onclick=pitNow;
 $('#serverResyncBtn').onclick=serverResync;
 $('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay FUTURE planned schedule by how many minutes? Current/completed timing is preserved.',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
 $('#brakePlanBtn').onclick=configureBrakePlan;
+$('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null};commitState();render()}};
 $('#recalcBtn').onclick=()=>{if(!canEdit())return;state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;addLog('Schedule recalculated',false);commitState();render()};
@@ -1205,7 +1284,7 @@ async function initDiscord(){
 }
 
 const _modal=$('#modalBack'); if(_modal){_modal.style.display='none';_modal.classList.add('hidden');}
-initCalcInputs();render();calculateFuel();initDiscord();
+const ie=$('#incidentText');if(ie)ie.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addIncident();}});initCalcInputs();render();calculateFuel();initDiscord();
 if(isDiscordActivityHost()){
   $('#sharedHelp').textContent='Discord Activity mode: shared state uses the /supabase URL Mapping.';
 }
