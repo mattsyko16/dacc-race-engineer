@@ -65,7 +65,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.2</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.3</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -199,7 +199,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.2 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.3 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script type="module">
@@ -474,6 +474,17 @@ function updateCountdownDisplay(){
   }
 }
 
+
+function raceRemainingSec(){
+  const elapsed=elapsedRaceSec();
+  const r=state.runtime;
+  if(Number.isFinite(r.serverRemainingAnchorSec)){
+    const anchorElapsed=Number.isFinite(r.serverAnchorElapsedSec)?r.serverAnchorElapsedSec:elapsed;
+    return Math.max(0,r.serverRemainingAnchorSec-(elapsed-anchorElapsed));
+  }
+  return Math.max(0,state.event.raceHours*3600-elapsed);
+}
+
 function render(){
   const sch=schedule(),e=state.event,cur=state.runtime.status==='PRE-RACE'?0:Math.min(state.runtime.currentIndex,Math.max(0,sch.length-1));
   const elapsed=elapsedRaceSec(),phase=livePhase(sch),edit=canEdit();
@@ -487,7 +498,7 @@ function render(){
 
   $('#statusBadge').textContent=phase;
   $('#statusBadge').style.color=phase==='LIVE'?'var(--good)':phase==='PAUSED'||phase==='PIT / CHANGEOVER'||phase==='COUNTDOWN'?'var(--warn)':phase==='FINISHED'?'var(--bad)':'var(--muted)';
-  $('#raceRemaining').textContent=fmtSec(Math.max(0,e.raceHours*3600-elapsed));
+  $('#raceRemaining').textContent=fmtSec(raceRemainingSec());
   const serverNowBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(e.serverStart);
   const serverNowAnchor=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   $('#serverClock').textContent=secToClock(serverNowBase+(elapsed-serverNowAnchor));
@@ -743,7 +754,7 @@ async function serverResync(){
   if(!canEdit()) return;
   const mode=await modalAsk({
     title:'Server reset / resync',
-    text:'Type CLOCK to set the restarted server clock, or REMAINING to set server race time remaining.',
+    text:'Type CLOCK to reset the server clock, or REMAINING to correct the official Race Remaining countdown.',
     input:true,value:'CLOCK',ok:'Next'
   });
   if(mode===null) return;
@@ -782,19 +793,28 @@ async function serverResync(){
       ? Math.max(0,state.runtime.serverRemainingAnchorSec-(elapsed-state.runtime.serverAnchorElapsedSec))
       : Math.max(0,state.event.raceHours*3600-elapsed);
     const v=await modalAsk({
-      title:'Set server time remaining',
+      title:'Set official Race Remaining',
       text:'Enter H:MM:SS. Example: 17:35:00',
       input:true,value:fmtSec(currentRem),ok:'Resync'
     });
     if(v===null) return;
     const sec=parseHMS(v);
     if(sec===null){toast('Enter a valid remaining time.');return}
+    // Preserve the server-clock reading while re-anchoring the official remaining-time countdown.
+    const priorAnchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
+    const priorAnchorClock=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
+    const currentServerClock=priorAnchorClock+(elapsed-priorAnchorElapsed);
+
     state.runtime.serverAnchorElapsedSec=elapsed;
+    state.runtime.serverAnchorClockSec=currentServerClock;
     state.runtime.serverRemainingAnchorSec=sec;
-    addLog(`SERVER RESET: server time remaining set to ${fmtSec(sec)} at IRL race elapsed ${fmtSec(elapsed)}`,false);
+    addLog(`SERVER RESET: race remaining resynced to ${fmtSec(sec)} at IRL race elapsed ${fmtSec(elapsed)}`,false);
   }
 
-  commitState(); render(); toast('Server timing resynced for all viewers.');
+  commitState(); render();
+  toast(Number.isFinite(state.runtime.serverRemainingAnchorSec)
+    ? `Race remaining now ${fmtSec(raceRemainingSec())}`
+    : 'Server timing resynced for all viewers.');
 }
 
 async function startRace(auto=false){
@@ -1093,8 +1113,8 @@ setInterval(updateCountdownDisplay,250);
 // Main race UI refresh.
 setInterval(()=>{
   if(['LIVE','PAUSED'].includes(state.runtime.status)){
-    if(canEdit()&&state.runtime.status==='LIVE'&&elapsedRaceSec()>=state.event.raceHours*3600){
-      state.runtime.status='FINISHED';addLog('Race clock reached zero — FINISHED',false);commitState();
+    if(canEdit()&&state.runtime.status==='LIVE'&&raceRemainingSec()<=0){
+      state.runtime.status='FINISHED';addLog('Race countdown reached zero — FINISHED',false);commitState();
     }
     render();
   }
