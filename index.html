@@ -20,6 +20,7 @@ background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;pla
 h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
 .badge{padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:#111720}
 .grid{display:grid;grid-template-columns:1.45fr .8fr;gap:12px}
+.grid>main,.grid>aside,.card{min-width:0}
 @media(max-width:1050px){.grid{grid-template-columns:1fr}}
 .card{background:rgba(20,25,34,.96);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .card h2{font-size:13px;letter-spacing:.05em;text-transform:uppercase;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);color:#dfe6f3}
@@ -58,7 +59,7 @@ select{min-width:120px} input.small{width:72px}
 .hidden{display:none !important;pointer-events:none !important}.modalback{position:fixed;pointer-events:auto;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;z-index:9999;padding:18px}.modalbox{width:min(480px,100%);background:#151b25;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px}.modalbox h3{margin:0 0 8px;font-size:18px}.modalbox p{color:#cbd5e5}.modalbox input{width:100%;margin:8px 0 12px}.toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#17202c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);max-width:360px}
 textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:8px;padding:8px;resize:vertical}
 footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
-.prepsummary{margin-top:9px;padding:9px;border:1px solid var(--line);border-radius:9px;background:#101722;font-size:12px}.prepsummary strong{color:#dfe8fa}.prepsummary .prepgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:6px}.prepsummary details{margin-top:7px}.prepsummary summary{cursor:pointer;color:var(--accent)}.prepsummary .prepline{margin-top:5px;color:#cbd5e5;white-space:pre-wrap}.actualbadge{font-size:10px;color:var(--good);font-weight:800}.prepmeta{font-size:11px;color:var(--muted);margin-top:6px}
+.prepsummary{margin-top:9px;padding:9px;border:1px solid var(--line);border-radius:9px;background:#101722;font-size:12px}.prepsummary strong{color:#dfe8fa}.prepsummary .prepgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 9px;margin-top:8px}.prepsummary .prepgrid span{min-width:0;overflow-wrap:anywhere}.prepsummary .prepgrid .prepwide{grid-column:1/-1}.prepsummary .pressurelabel{margin-top:10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em}.prepsummary .pressuregrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:5px}.prepsummary .pressurecell{display:flex;justify-content:space-between;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#172131;font-variant-numeric:tabular-nums}.prepsummary .pressurecell b{color:#f4f6fb}.prepsummary details{margin-top:8px}.prepsummary summary{cursor:pointer;color:var(--accent)}.prepsummary .prepline{margin-top:5px;color:#cbd5e5;white-space:pre-wrap}.actualbadge{font-size:10px;color:var(--good);font-weight:800}.prepmeta{font-size:11px;color:var(--muted);margin-top:6px}
 .brakewarn{margin-top:8px;padding:8px 10px;border:1px solid #f8c555;border-radius:9px;background:#3a2d0b;color:#ffe3a3;font-weight:800;letter-spacing:.2px}
 .brakeflag{font-weight:800;color:#f8c555}
 .incidentlog{display:flex;flex-direction:column;gap:8px}.incidentrow{display:grid;grid-template-columns:105px 70px 70px 140px 1fr auto;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line)}.incidenttime{color:var(--muted);font-size:12px}.incidentdriver{font-weight:700}.incidenttext{white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.incidentrow{grid-template-columns:1fr}.incidenttime{font-size:11px}}.finish-green{border-color:var(--good)!important;background:#10271f!important}.finish-green .value{color:#6ee7b7}.finish-yellow{border-color:var(--warn)!important;background:#302815!important}.finish-yellow .value{color:#ffdb7c}.finish-red{border-color:var(--bad)!important;background:#321b1b!important}.finish-red .value{color:#ff9b9b}.finishmargin{font-size:11px;margin-top:4px;color:var(--muted)}
@@ -69,7 +70,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.1</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.2</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -231,7 +232,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.7.1 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.7.2 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script>
@@ -727,15 +728,25 @@ function renderNextPrep(st){
   const el=$('#nextPrep'),wasOpen=!!el.querySelector('details')?.open;el.replaceChildren();
   if(!st){el.textContent='No next stint.';return}
   const p=prepForStint(st);
-  if(!Object.keys(p).length){el.textContent='No setup data entered in workbook.';return}
+  if(!Object.keys(p).length&&!st.brakeChangeAfter){el.textContent='No setup data entered in workbook.';return}
   const title=document.createElement('strong');title.textContent='NEXT DRIVER PREP';el.appendChild(title);
   const grid=document.createElement('div');grid.className='prepgrid';
-  for(const [name,value] of [['Fuel',p.fuel],['BB',p.bb],['TC',p.tc],['LF / RF',`${prepValue(p.lf)} / ${prepValue(p.rf)}`],['LR / RR',`${prepValue(p.lr)} / ${prepValue(p.rr)}`]]){
-    const item=document.createElement('span');item.textContent=`${name}: ${prepValue(value)}`;grid.appendChild(item)
+  const brake=p.brakeInstruction==='Y'?'Yes':p.brakeInstruction==='N'?'No':p.brakeInstruction||(st.brakeChangeAfter?'After this stint':null);
+  for(const [name,value,wide] of [['Fuel',p.fuel],['Pit strat',p.pitStrategy],['BB',p.bb],['TC',p.tc],['Brake change',brake,true]]){
+    const item=document.createElement('span');item.textContent=`${name}: ${prepValue(value)}`;if(wide)item.className='prepwide';grid.appendChild(item)
   }
   el.appendChild(grid);
+  const pressureLabel=document.createElement('div');pressureLabel.className='pressurelabel';pressureLabel.textContent='Tyre pressures (PSI)';el.appendChild(pressureLabel);
+  const pressures=document.createElement('div');pressures.className='pressuregrid';
+  for(const [name,key] of [['LF','lf'],['RF','rf'],['LR','lr'],['RR','rr']]){
+    const cell=document.createElement('div');cell.className='pressurecell';
+    const label=document.createElement('span');label.textContent=name;
+    const value=document.createElement('b');value.textContent=prepValue(p[key]);
+    cell.append(label,value);pressures.appendChild(cell)
+  }
+  el.appendChild(pressures);
   const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='More prep';details.appendChild(summary);
-  for(const [name,key] of [['TC2','tc2'],['ABS','abs'],['Front ducts','frontDuct'],['Rear ducts','rearDuct'],['Fuel/lap','fuelPerLap'],['Pit strategy / load profile','pitStrategy'],['Server temp','serverTemp'],['Air temp','airTemp'],['Track temp','trackTemp'],['Brake change','brakeInstruction'],['Notes','notes']]){
+  for(const [name,key] of [['TC2','tc2'],['ABS','abs']]){
     const line=document.createElement('div');line.className='prepline';line.textContent=`${name}: ${prepValue(p[key])}`;details.appendChild(line)
   }
   details.open=wasOpen;el.appendChild(details);
