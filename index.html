@@ -69,7 +69,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.1</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -231,7 +231,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.7 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.7.1 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script>
@@ -1434,7 +1434,7 @@ async function copyViewerLink(){
 }
 
 async function autoJoinLatestWithRetry(){
-  if(!cfg.autoJoinLatest || shared.code) return false;
+  if(!cfg.autoJoinLatest || shared.code) return null;
 
   // Some Discord/iOS clients initialise before the proxy/network path is ready.
   // Retry active-race discovery rather than falling straight back to LOCAL/OFFLINE.
@@ -1447,30 +1447,24 @@ async function autoJoinLatestWithRetry(){
         `dacc_race_sessions?select=code,state,updated_at&event_key=eq.${encodeURIComponent(cfg.eventKey)}&is_active=eq.true&order=updated_at.desc&limit=1`
       );
       if(Array.isArray(data) && data[0]){
-        shared.code=data[0].code;
-        shared.isController=false;
-        shared.controlKey='';
-        applyRemote(data[0].state,data[0].updated_at);
-        setSyncStatus('LIVE');
-        renderSharedMeta();
-        return true;
+        return data[0].code;
       }
     }catch(e){
       console.warn(`Auto-join attempt ${attempt+1} failed`,e);
     }
   }
-  return false;
+  return null;
 }
 
 async function initShared(){
   const url=String(cfg.supabaseUrl||'').trim(),key=String(cfg.supabaseAnonKey||cfg.supabasePublishableKey||'').trim();
-  if(!url||!key){setSyncStatus('LOCAL');renderSharedMeta();return}
-  if(cfg.autoJoinLatest && !shared.code){const joined=await autoJoinLatestWithRetry();if(joined)return;}
+  if(!url||!key){setSyncStatus('LOCAL');renderSharedMeta();$('#sharedHelp').textContent='Shared race is unavailable: config.js is missing or incomplete. Check the deployed configuration.';return}
   shared.supabase=true;
   const param=new URLSearchParams(location.search).get('session');
   if(param){await joinSession(param);return}
   const saved=localStorage.getItem('dacc-session-code');
   if(saved){await joinSession(saved);return}
+  if(cfg.autoJoinLatest){const code=await autoJoinLatestWithRetry();if(code){await joinSession(code);return}}
   if(cfg.autoJoinLatest!==false) await joinActive();
 }
 async function pushSharedState(){
@@ -1603,3 +1597,4 @@ await initShared();render();
 
 </body>
 </html>
+
