@@ -13,15 +13,15 @@
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%;touch-action:manipulation}button,input,select,textarea,label{-webkit-tap-highlight-color:transparent;touch-action:manipulation} body{margin:0;background:linear-gradient(180deg,#090c11,#10151e);
 font:14px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}
 button,input,select,textarea{font:inherit}
-.shell{max-width:1500px;margin:0 auto;padding:14px}
+.shell{max-width:1900px;margin:0 auto;padding:14px}
 .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
 .brand{display:flex;align-items:center;gap:10px}.logo{width:40px;height:40px;border-radius:10px;
 background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:900;color:#08101d}
 h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
 .badge{padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:#111720}
-.grid{display:grid;grid-template-columns:1.45fr .8fr;gap:12px}
+.grid{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(380px,.8fr);gap:12px}
 .grid>main,.grid>aside,.card{min-width:0}
-@media(max-width:1050px){.grid{grid-template-columns:1fr}}
+@media(max-width:1450px){.grid{grid-template-columns:1fr}}
 .card{background:rgba(20,25,34,.96);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .card h2{font-size:13px;letter-spacing:.05em;text-transform:uppercase;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);color:#dfe6f3}
 .cardbody{padding:12px}
@@ -47,6 +47,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 select,input[type=number],input[type=time],input[type=text],input[type=password]{background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:7px;padding:6px}
 select{min-width:120px} input.small{width:72px}
 .rowbtns{display:flex;gap:4px}.rowbtns button{padding:4px 7px;font-size:12px}
+@media(min-width:761px){.tablewrap th,.tablewrap td{padding:6px 5px}.tablewrap select{min-width:105px}.tablewrap input.small{width:62px}.tablewrap .rowbtns button{padding:3px 5px}.tablewrap td.stintactions button{font-size:12px;padding:4px 6px;min-height:0}}
 .sidegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:11px;color:var(--muted)}.field input{width:100%}
 .fuelresult{background:#101a16;border:1px solid #264b3b;border-radius:10px;padding:12px;margin-top:10px}
@@ -70,7 +71,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.2</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.3</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -232,7 +233,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.7.2 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.7.3 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script>
@@ -915,7 +916,7 @@ function render(){
       <td class="num"><input class="small" type="number" min="1" data-laps="${i}" value="${r.laps}" ${locked?'disabled':''}></td>
       <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint"></td>
       <td>${secToClock(r.start)}${r.isActualStart?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}${Number.isFinite(state.runtime.serverHistory?.[i]?.serverStart)?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.serverFinish)}</td>
-      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td><button data-actual="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!edit?'disabled':''}>NOW</button>`:''}</td>
+      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!edit?'disabled':''}>NOW</button>`:''}</td>
       <td><div class="rowbtns">
         <button data-up="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur+1))?'disabled':''}>↑</button>
         <button data-down="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur))?'disabled':''}>↓</button>
