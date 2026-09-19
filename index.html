@@ -72,7 +72,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.4</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.5</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -235,7 +235,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.7.4 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.7.5 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script>
@@ -1287,25 +1287,37 @@ function pauseResume(){
   }
   commitState();render()
 }
-function pitNow(){
+function completeCurrentStint({automatic=false}={}){
   if(!canEdit()||state.runtime.status!=='LIVE')return;
   const i=state.runtime.currentIndex,sch=schedule(),elapsed=elapsedRaceSec(),r=sch[i];
   if(!r||elapsed<r.startElapsed)return;
-  state.runtime.actualStints[i]||={startElapsed:r.startElapsed};state.runtime.actualStints[i].finishElapsed=elapsed;
+  if(automatic&&elapsed<r.finishElapsed)return;
+  // Automatic handovers use the planned boundary so a delayed browser tick does
+  // not add drift to every later stint. PIT NOW records the exact live instant.
+  const finishElapsed=automatic?r.finishElapsed:elapsed;
+  state.runtime.actualStints[i]||={startElapsed:r.startElapsed};state.runtime.actualStints[i].finishElapsed=finishElapsed;
   const anchorBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
   const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   state.runtime.serverHistory ||= {};
   state.runtime.serverHistory[i]={
     serverStart:r.serverStart,
-    serverFinish:Math.max(r.serverStart,anchorBase+(elapsed-anchorElapsed))
+    serverFinish:Math.max(r.serverStart,anchorBase+(finishElapsed-anchorElapsed))
   };
-  addLog(`PIT NOW — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(elapsed)}`,false);
+  addLog(`${automatic?'AUTO ADVANCE':'PIT NOW'} — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(finishElapsed)}`,false);
   if(i>=state.stints.length-1){state.runtime.status='FINISHED';addLog('Final stint complete — FINISHED',false)}
   else{
     const next=i+1;state.runtime.currentIndex=next;
     addLog(`Next: ${label(state.stints[next].driver)} after ${state.event.pitLossSec}s pit/changeover`,false);
   }
-  commitState();render()
+  commitState();render();
+  return true
+}
+function pitNow(){return completeCurrentStint()}
+function autoAdvanceDueStint(){
+  if(!canEdit()||state.runtime.status!=='LIVE')return false;
+  const row=schedule()[state.runtime.currentIndex];
+  if(!row||elapsedRaceSec()<row.finishElapsed)return false;
+  return completeCurrentStint({automatic:true})===true
 }
 function delaySchedule(mins){
   if(!canEdit()||!Number.isFinite(mins))return;
@@ -1582,6 +1594,7 @@ setInterval(()=>{
     if(canEdit()&&state.runtime.status==='LIVE'&&raceRemainingSec()<=0){
       state.runtime.status='FINISHED';addLog('Race countdown reached zero — FINISHED',false);commitState();
     }
+    else if(autoAdvanceDueStint()) return;
     render();
   }
 },1000);
