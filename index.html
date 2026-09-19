@@ -74,7 +74,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.8</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.10</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -244,7 +244,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V4.7.8 • server remaining sync • frozen history • no database changes.</footer>
+  <footer>DACC Race Engineer V4.7.10 • immediate confirmed server resync • no database changes.</footer>
 </div>
 
 <script>
@@ -272,6 +272,7 @@ const fmtSec=s=>{
 const timeToSec=t=>{const [h,m]=String(t||'00:00').split(':').map(Number);return (h||0)*3600+(m||0)*60};
 const secToClock=s=>{s=((s%86400)+86400)%86400;return `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(Math.floor(s%60))}`};
 const deepClone=o=>JSON.parse(JSON.stringify(o));
+const BRAKE_CHANGE_EXTRA_SEC=45;
 const cfg=window.DACC_CONFIG||{};
 
 let seed = await fetch('./seed.json').then(r=>r.json());
@@ -293,6 +294,7 @@ const shared={
   channel:null,
   status:'LOCAL',
   lastUpdated:null,
+  lastPulledAtMs:0,
   applyingRemote:false,
   pushTimer:null,
   localDirty:false,
@@ -427,14 +429,16 @@ function renderLog(){
     return `<div>${t} — ${escapeHtml(x.msg)}</div>`
   }).join('');
 }
-function commitState(){
+function commitState({immediate=false}={}){
   state.runtime.notes=$('#strategyNotes').value;
   saveLocal();
   shared.localDirty=true;
   if(shared.code && shared.isController && !shared.applyingRemote){
     clearTimeout(shared.pushTimer);
+    if(immediate)return pushSharedState();
     shared.pushTimer=setTimeout(pushSharedState,180);
   }
+  return Promise.resolve(!shared.code);
 }
 function applyRemote(remoteState,updatedAt){
   if(!remoteState) return;
@@ -484,7 +488,7 @@ function schedule(){
     let startElapsed;
     if(Number.isFinite(actual.startElapsed)) startElapsed=actual.startElapsed;
     else if(i===0) startElapsed=0;
-    else startElapsed=rows[i-1].finishElapsed+pit;
+    else startElapsed=rows[i-1].finishElapsed+pit+(rows[i-1].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0);
     if(!Number.isFinite(actual.startElapsed)) startElapsed += Number(state.runtime.plannedDelays?.[i]||0);
     const plannedDrive=st.laps*lap;
     const finishElapsed=Number.isFinite(actual.finishElapsed)?actual.finishElapsed:startElapsed+plannedDrive;
@@ -978,7 +982,7 @@ function render(){
     const locked=!edit||r.isActualFinish||(state.runtime.status!=='PRE-RACE' && i<=cur);
     tr.innerHTML=`<td>${i+1}</td><td><select data-driver="${i}" ${locked?'disabled':''}>${opts}</select></td>
       <td class="num"><input class="small" type="number" min="1" data-laps="${i}" value="${r.laps}" ${locked?'disabled':''}></td>
-      <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint"></td>
+      <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint (+45 seconds to pit time)"></td>
       <td>${secToClock(r.start)}${r.isActualStart?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}${Number.isFinite(state.runtime.serverHistory?.[i]?.serverStart)?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.serverFinish)}</td>
       <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!edit?'disabled':''}>NOW</button>`:''}</td>
       <td><div class="rowbtns">
@@ -1084,7 +1088,7 @@ async function configureBrakePlan(){
 
   const v=await modalAsk({
     title:'Brake change plan',
-    text:'Enter the stint number(s) AFTER which brakes must be changed. Example: 6, 12, 17. Leave blank to clear future brake changes.',
+    text:'Enter the stint number(s) AFTER which brakes must be changed. Each brake change adds 45 seconds to that pit stop. Example: 6, 12, 17. Leave blank to clear future brake changes.',
     input:true,
     value:existing,
     ok:'Apply'
@@ -1108,7 +1112,7 @@ async function configureBrakePlan(){
     s.brakeChangeAfter=nums.includes(i+1);
   });
 
-  addLog(`Brake plan updated: ${nums.length?nums.join(', '):'none'}${state.runtime.status!=='PRE-RACE'?' (current/future only)':''}`,false);
+  addLog(`Brake plan updated: ${nums.length?nums.join(', '):'none'}${nums.length?' (+45s pit time each)':''}${state.runtime.status!=='PRE-RACE'?' (current/future only)':''}`,false);
   commitState();
   render();
   toast(nums.length ? `Brake changes after stint${nums.length>1?'s':''} ${nums.join(', ')}` : 'Future brake changes cleared');
@@ -1228,6 +1232,18 @@ function parseHMS(text){
   if(p.length===1) return p[0]*3600;
   return null;
 }
+function freezeCompletedServerTiming(){
+  state.runtime.serverHistory ||= {};
+  state.runtime.serverRemainingHistory ||= {};
+  const rows=schedule();
+  rows.forEach((row,i)=>{
+    const actual=state.runtime.actualStints[i]||{};
+    if(Number.isFinite(actual.finishElapsed)){
+      state.runtime.serverHistory[i]={serverStart:row.serverStart,serverFinish:row.serverFinish};
+      state.runtime.serverRemainingHistory[i]=row.remaining;
+    }
+  });
+}
 async function serverResync(){
   if(!canEdit()) return;
   const mode=await modalAsk({
@@ -1239,23 +1255,12 @@ async function serverResync(){
   const m=String(mode).trim().toUpperCase();
   if(!['CLOCK','REMAINING'].includes(m)){toast('Enter CLOCK or REMAINING.');return}
 
-  const elapsed=elapsedRaceSec();
-  // Freeze completed server history before moving the server anchor.
-  state.runtime.serverHistory ||= {};
-  state.runtime.serverRemainingHistory ||= {};
-  const preResyncSchedule=schedule();
-  preResyncSchedule.forEach((row,i)=>{
-    const actual=state.runtime.actualStints[i]||{};
-    if(Number.isFinite(actual.finishElapsed)){
-      state.runtime.serverHistory[i]={serverStart:row.serverStart,serverFinish:row.serverFinish};
-      state.runtime.serverRemainingHistory[i]=row.remaining;
-    }
-  });
+  const previewElapsed=elapsedRaceSec();
 
   if(m==='CLOCK'){
     const current=secToClock(
       (Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart)) +
-      (elapsed-(Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0))
+      (previewElapsed-(Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0))
     );
     const v=await modalAsk({
       title:'Set restarted server clock',
@@ -1265,13 +1270,16 @@ async function serverResync(){
     if(v===null) return;
     const sec=parseHMS(v);
     if(sec===null){toast('Enter a valid server clock time.');return}
+    if(shared.code&&!shared.localDirty)await pollShared();
+    const elapsed=elapsedRaceSec();
+    freezeCompletedServerTiming();
     state.runtime.serverAnchorElapsedSec=elapsed;
     state.runtime.serverAnchorClockSec=sec;
     addLog(`SERVER RESET: server clock resynced to ${secToClock(sec)} at IRL race elapsed ${fmtSec(elapsed)}`,false);
   }else{
     const currentRem=Number.isFinite(state.runtime.serverRemainingAnchorSec)
-      ? Math.max(0,state.runtime.serverRemainingAnchorSec-(elapsed-state.runtime.serverAnchorElapsedSec))
-      : Math.max(0,state.event.raceHours*3600-elapsed);
+      ? Math.max(0,state.runtime.serverRemainingAnchorSec-(previewElapsed-state.runtime.serverAnchorElapsedSec))
+      : Math.max(0,state.event.raceHours*3600-previewElapsed);
     const v=await modalAsk({
       title:'Set official Race Remaining',
       text:'Enter H:MM:SS. Example: 17:35:00',
@@ -1280,6 +1288,9 @@ async function serverResync(){
     if(v===null) return;
     const sec=parseHMS(v);
     if(sec===null){toast('Enter a valid remaining time.');return}
+    if(shared.code&&!shared.localDirty)await pollShared();
+    const elapsed=elapsedRaceSec();
+    freezeCompletedServerTiming();
     // Preserve the server-clock reading while re-anchoring the official remaining-time countdown.
     const priorAnchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
     const priorAnchorClock=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
@@ -1293,10 +1304,17 @@ async function serverResync(){
     addLog(`SERVER RESET: stint ${state.runtime.currentIndex+1} ${label(state.stints[state.runtime.currentIndex]?.driver)} synced to ${fmtSec(sec)} server remaining at IRL race elapsed ${fmtSec(elapsed)}`,false);
   }
 
-  commitState(); render();
-  toast(Number.isFinite(state.runtime.serverRemainingAnchorSec)
-    ? `Race remaining now ${fmtSec(raceRemainingSec())}`
-    : 'Server timing resynced for all viewers.');
+  const syncStarted=Date.now();
+  const synced=await commitState({immediate:true});
+  render();
+  const syncMs=Date.now()-syncStarted;
+  if(shared.code){
+    if(synced)toast(Number.isFinite(state.runtime.serverRemainingAnchorSec)
+      ? `Race remaining ${fmtSec(raceRemainingSec())} • shared sync confirmed in ${syncMs}ms`
+      : `Server timing shared sync confirmed in ${syncMs}ms`,6000);
+  }else toast(Number.isFinite(state.runtime.serverRemainingAnchorSec)
+    ? `Race remaining now ${fmtSec(raceRemainingSec())} (local mode)`
+    : 'Server timing resynced in local mode.');
 }
 
 async function startRace(auto=false){
@@ -1417,7 +1435,8 @@ function completeCurrentStint({automatic=false}={}){
   if(i>=state.stints.length-1){state.runtime.status='FINISHED';addLog('Final stint complete — FINISHED',false)}
   else{
     const next=i+1;state.runtime.currentIndex=next;
-    addLog(`Next: ${label(state.stints[next].driver)} after ${state.event.pitLossSec}s pit/changeover`,false);
+    const changeoverSec=Number(state.event.pitLossSec||0)+(r.brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0);
+    addLog(`Next: ${label(state.stints[next].driver)} after ${changeoverSec}s pit/changeover${r.brakeChangeAfter?' (includes +45s brake change)':''}`,false);
   }
   commitState();render();
   return true
@@ -1499,6 +1518,7 @@ async function pollShared(){
     const data=await supa(`dacc_race_sessions?select=code,state,updated_at&code=eq.${code}&is_active=eq.true&limit=1`);
     const row=Array.isArray(data)?data[0]:null;
     if(!row){setSyncStatus('OFFLINE');return}
+    shared.lastPulledAtMs=Date.now();
     if(!shared.lastUpdated || row.updated_at!==shared.lastUpdated){
       if(shared.localDirty && shared.isController){
         setSyncStatus('CONFLICT');
@@ -1512,7 +1532,7 @@ async function pollShared(){
 async function subscribeShared(){
   setSyncStatus('LIVE');
   clearInterval(shared.channel);
-  shared.channel=setInterval(pollShared,2000);
+  shared.channel=setInterval(pollShared,1000);
 }
 async function joinSession(code){
   if(!shared.supabase){toast('Supabase is not configured yet.');return}
@@ -1596,7 +1616,7 @@ async function unlockControlWithPrompt(){
   return true;
 }
 async function leaveSession(){
-  await unsubscribeShared();shared.code=null;shared.controlKey=null;shared.isController=false;shared.lastUpdated=null;
+  await unsubscribeShared();shared.code=null;shared.controlKey=null;shared.isController=false;shared.lastUpdated=null;shared.lastPulledAtMs=0;
   localStorage.removeItem('dacc-session-code');$('#controlKeyInput').value='';setSyncStatus('LOCAL');render();
 }
 async function copyViewerLink(){
@@ -1641,10 +1661,10 @@ async function initShared(){
   if(cfg.autoJoinLatest!==false) await joinActive();
 }
 async function pushSharedState(){
-  if(!shared.supabase||!shared.code||!shared.isController)return;
+  if(!shared.supabase||!shared.code||!shared.isController)return false;
   setSyncStatus('CONNECTING');
   try{
-    if(shared.conflictGuard && shared.lastUpdated){
+    if(shared.conflictGuard && shared.lastUpdated && Date.now()-shared.lastPulledAtMs>500){
       const enc=encodeURIComponent(shared.code);
       const latestData=await supa(`dacc_race_sessions?select=state,updated_at&code=eq.${enc}&is_active=eq.true&limit=1`);
       const latest=Array.isArray(latestData)?latestData[0]:null;
@@ -1652,7 +1672,7 @@ async function pushSharedState(){
         applyRemote(latest.state,latest.updated_at);
         setSyncStatus('LIVE');
         toast('Another Race Control device changed the race first. Latest state loaded — please repeat your last action.',6500);
-        return;
+        return false;
       }
     }
     const data=await supa('rpc/dacc_update_race_state',{
@@ -1662,7 +1682,8 @@ async function pushSharedState(){
     shared.lastUpdated=row?.updated_at||new Date().toISOString();
     shared.localDirty=false;
     setSyncStatus('LIVE');renderSharedMeta();
-  }catch(err){console.error(err);setSyncStatus('OFFLINE');toast(`Sync failed: ${err.message}`,4500)}
+    return true;
+  }catch(err){console.error(err);setSyncStatus('OFFLINE');toast(`Sync failed: ${err.message}`,4500);return false}
 }
 
 $('#calcFuelBtn').onclick=calculateFuel;
