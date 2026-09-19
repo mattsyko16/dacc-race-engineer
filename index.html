@@ -29,6 +29,7 @@ h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
 @media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}button{min-height:46px;padding:11px 13px;font-size:15px}.toolbar{gap:8px}.toolbar button{flex:1 1 145px}.shell{padding:7px}.cardbody{padding:9px}.tablewrap{font-size:12px}.drivercard .name{font-size:18px}.kpi .value{font-size:18px}.sidegrid{grid-template-columns:1fr}.field input,.field select{min-height:44px;font-size:16px}.modalbox input{min-height:46px;font-size:16px}.syncrow{align-items:flex-start}.sessioncode{font-size:18px}}
 .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px}
 .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi .value{font-size:22px;font-weight:800;margin-top:4px}
+.change-green{border-color:var(--good)!important;background:#10271f!important}.change-green .value{color:#6ee7b7}.change-yellow{border-color:var(--warn)!important;background:#302815!important}.change-yellow .value{color:#ffdb7c}.change-red{border-color:var(--bad)!important;background:#321b1b!important}.change-red .value{color:#ff9b9b}.change-urgent{box-shadow:0 0 0 2px rgba(242,109,109,.35),0 8px 28px rgba(0,0,0,.28)}.change-target{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drivercards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
 @media(max-width:760px){.drivercards{grid-template-columns:1fr}}
 .drivercard{background:linear-gradient(180deg,#1a2230,#151b25);border:1px solid var(--line);border-radius:11px;padding:11px}
@@ -71,7 +72,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.3</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.4</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -83,6 +84,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <div class="kpi"><div class="label">Race remaining</div><div class="value" id="raceRemaining">--:--:--</div></div>
             <div class="kpi"><div class="label">Server clock</div><div class="value" id="serverClock">--:--:--</div></div>
             <div class="kpi" id="projectedFinishKpi"><div class="label">Server projected finish</div><div class="value" id="plannedFinish">--:--</div><div class="finishmargin" id="finishMargin">—</div></div>
+            <div class="kpi" id="driverChangeKpi"><div class="label">Next driver change</div><div class="value" id="driverChangeCountdown" aria-live="polite">—</div><div class="change-target" id="driverChangeTarget">Waiting for race start</div></div>
             <div class="kpi"><div class="label">Current stint</div><div class="value" id="currentStintNo">1</div></div><div class="kpi"><div class="label">Start countdown</div><div class="value" id="startCountdown">—</div></div>
             <div class="kpi"><div class="label">Projected laps / stints</div><div class="value"><span id="projectedLaps">0</span> <span style="font-size:13px;color:var(--muted)" id="projectedStints"></span></div></div>
           </div>
@@ -233,7 +235,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.7.3 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.7.4 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script>
@@ -577,6 +579,27 @@ function updateCountdownDisplay(){
 }
 
 
+function driverChangeCountdownModel(sch=schedule(),elapsed=elapsedRaceSec()){
+  const status=state.runtime.status;
+  if(status==='FINISHED'||!sch.length)return {seconds:null,tone:'none',urgent:false,target:'Race finished'};
+  const cur=status==='PRE-RACE'?0:Math.min(state.runtime.currentIndex,sch.length-1);
+  const row=sch[cur],next=sch[cur+1];
+  if(!row||!next)return {seconds:null,tone:'none',urgent:false,target:'No further driver change'};
+  const seconds=Math.max(0,row.finishElapsed-(status==='PRE-RACE'?0:elapsed));
+  const tone=seconds>1200?'green':seconds>300?'yellow':'red';
+  return {seconds,tone,urgent:seconds<=0,target:`Next: ${label(next.driver)} • projected ${secToClock(row.finish)}`};
+}
+function updateDriverChangeCountdown(){
+  const el=$('#driverChangeCountdown'),box=$('#driverChangeKpi'),target=$('#driverChangeTarget');
+  if(!el||!box||!target)return;
+  const result=driverChangeCountdownModel();
+  box.classList.remove('change-green','change-yellow','change-red','change-urgent');
+  if(result.tone!=='none')box.classList.add(`change-${result.tone}`);
+  if(result.urgent)box.classList.add('change-urgent');
+  el.textContent=result.seconds===null?'—':fmtSec(Math.ceil(result.seconds));
+  target.textContent=result.urgent?'CHANGE DUE NOW — advance stint or record next actual start':result.target;
+}
+
 function raceRemainingSec(){
   const elapsed=elapsedRaceSec();
   const r=state.runtime;
@@ -858,6 +881,7 @@ function render(){
   $('#currentStintNo').textContent=phase==='PIT / CHANGEOVER'?`PIT→${cur+1}`:(cur+1);
   $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0); $('#projectedStints').textContent=`(${state.stints.length})`;
   updateCountdownDisplay();
+  updateDriverChangeCountdown();
 
   const startBtn=$('#startRaceBtn'),pauseBtn=$('#pauseRaceBtn'),pitBtn=$('#pitNowBtn');
   startBtn.disabled=!edit||state.runtime.status!=='PRE-RACE'; $('#countdownBtn').disabled=!edit||state.runtime.status!=='PRE-RACE'||state.runtime.countdownActive;
@@ -1550,7 +1574,7 @@ if(SR){
 }else{$('#voiceBtn').disabled=true;$('#voiceText').textContent='Direct voice recognition is unavailable here. Tap Voice text and use the iPhone keyboard microphone to dictate the command.'}
 
 // Dedicated countdown ticker: works smoothly on desktop, iOS and VIEW ONLY clients.
-setInterval(updateCountdownDisplay,250);
+setInterval(()=>{updateCountdownDisplay();updateDriverChangeCountdown()},250);
 
 // Main race UI refresh.
 setInterval(()=>{
