@@ -74,7 +74,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.10</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.12</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -98,9 +98,10 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           </div>
 
           <div class="actualquick" id="actualStartQuick">
-            <div class="actualquicktitle"><div class="role">Actual Stint Start</div><div class="sub" id="actualStartHelp">Race Control can correct the IRL start time.</div></div>
+            <div class="actualquicktitle"><div class="role">Actual Stint Timing</div><div class="sub" id="actualStartHelp">Race Control can correct the IRL start or finish time.</div></div>
             <select id="actualStartStintSelect" aria-label="Stint for actual start"></select>
             <button id="quickActualStartBtn">Set Actual Start</button>
+            <button id="quickActualFinishBtn">Set Actual Finish</button>
             <button class="good" id="quickActualNowBtn">NOW (current)</button>
           </div>
 
@@ -121,7 +122,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 
           <div class="tablewrap">
             <table id="stintTable">
-              <thead><tr><th>#</th><th>Driver</th><th>Laps</th><th>Brakes after</th><th>IRL Start</th><th>IRL Finish</th><th>Server Start</th><th>Server Finish</th><th>Remaining</th><th>Availability</th><th>Actual start</th><th></th></tr></thead>
+              <thead><tr><th>#</th><th>Driver</th><th>Laps</th><th>Brakes after</th><th>IRL Start</th><th>IRL Finish</th><th>Server Start</th><th>Server Finish</th><th>Remaining</th><th>Availability</th><th>Actual timing</th><th></th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -244,7 +245,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V4.7.10 • immediate confirmed server resync • no database changes.</footer>
+  <footer>DACC Race Engineer V4.7.12 • actual start and finish correction • no database changes.</footer>
 </div>
 
 <script>
@@ -521,7 +522,7 @@ function parseClock(value){
   return +m[1]*3600 + +m[2]*60 + +(m[3]||0);
 }
 function nearestClock(value,near){return value+86400*Math.round((near-value)/86400)}
-async function setActualStart(i,irlClock){
+async function setActualStart(i,irlClock,{syncRemainingToMain=false}={}){
   if(!canEdit()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex||i<0)return;
   const old=schedule();
   for(let j=0;j<state.runtime.currentIndex;j++){
@@ -539,10 +540,15 @@ async function setActualStart(i,irlClock){
   const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   const server=anchorBase+(a.startElapsed-anchorElapsed);
   state.runtime.serverHistory[i] ||= {};state.runtime.serverHistory[i].serverStart=server;
-  const msg=`Actual start corrected: stint ${i+1} ${label(state.stints[i].driver)} • IRL ${secToClock(irl)} • server ${secToClock(server)}`;
+  if(syncRemainingToMain){
+    state.runtime.serverRemainingHistory ||= {};
+    state.runtime.serverRemainingHistory[i]=raceRemainingSec();
+  }
+  const msg=`Actual start corrected: stint ${i+1} ${label(state.stints[i].driver)} • IRL ${secToClock(irl)} • server ${secToClock(server)}${syncRemainingToMain?` • remaining ${fmtSec(state.runtime.serverRemainingHistory[i])}`:''}`;
   addLog(msg,false);commitState();render();toast('Actual stint start saved for everyone.');
 }
 async function editActualStart(i){
+  if(canEdit()&&state.runtime.status==='LIVE'&&i>state.runtime.currentIndex)catchUpDueStints();
   if(!canEdit()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
   const row=schedule()[i];
   const irl=await modalAsk({title:`Stint ${i+1} actual IRL start`,text:'Enter actual IRL time as HH:MM:SS. The server time is calculated automatically.',input:true,value:secToClock(row.start),ok:'Save actual start'});
@@ -550,17 +556,59 @@ async function editActualStart(i){
   const irlSec=parseClock(irl);if(irlSec===null){toast('Enter IRL time as HH:MM:SS.');return}
   await setActualStart(i,irlSec);
 }
+async function setActualFinish(i,irlClock){
+  if(!canEdit()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex||i<0)return;
+  const rows=schedule(),row=rows[i];if(!row)return;
+  const irl=nearestClock(irlClock,row.finish);
+  const finishElapsed=irl-actualRaceStartClockSec();
+  if(finishElapsed<row.startElapsed){toast('Actual finish must be after the stint start.');return}
+  if(i===state.runtime.currentIndex&&finishElapsed>elapsedRaceSec()+5){toast('Current stint finish cannot be in the future.');return}
+  const nextActual=state.runtime.actualStints[i+1];
+  if(i<state.runtime.currentIndex&&Number.isFinite(nextActual?.startElapsed)&&finishElapsed>nextActual.startElapsed){toast('Actual finish must be before the next actual start.');return}
+  if(i===state.runtime.currentIndex){
+    completeCurrentStint({finishOverrideElapsed:finishElapsed,irlFinishClock:irl});
+    return;
+  }
+  const a=state.runtime.actualStints[i] ||= {};
+  a.finishElapsed=finishElapsed;a.irlFinishClock=irl;
+  const anchorBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
+  const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
+  state.runtime.serverHistory ||= {};
+  state.runtime.serverHistory[i] ||= {};
+  state.runtime.serverHistory[i].serverStart ??= row.serverStart;
+  state.runtime.serverHistory[i].serverFinish=Math.max(state.runtime.serverHistory[i].serverStart,anchorBase+(finishElapsed-anchorElapsed));
+  addLog(`Actual finish corrected: stint ${i+1} ${label(state.stints[i].driver)} • IRL ${secToClock(irl)} • server ${secToClock(state.runtime.serverHistory[i].serverFinish)}`,false);
+  commitState();render();toast('Actual stint finish saved; later projections recalculated.');
+}
+async function editActualFinish(i){
+  if(canEdit()&&state.runtime.status==='LIVE'&&i>state.runtime.currentIndex)catchUpDueStints();
+  if(!canEdit()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
+  const row=schedule()[i];
+  const irl=await modalAsk({title:`Stint ${i+1} actual IRL finish`,text:i===state.runtime.currentIndex?'Enter the actual IRL finish time as HH:MM:SS. Saving advances to the next stint from this exact time.':'Enter the corrected actual IRL finish as HH:MM:SS. Later projections recalculate automatically.',input:true,value:secToClock(row.finish),ok:'Save actual finish'});
+  if(irl===null)return;
+  const irlSec=parseClock(irl);if(irlSec===null){toast('Enter IRL time as HH:MM:SS.');return}
+  await setActualFinish(i,irlSec);
+}
 async function setCurrentStartNow(){
-  const i=state.runtime.currentIndex;
   if(!canEdit()||state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED')return;
+  catchUpDueStints();
+  if(state.runtime.status==='FINISHED')return;
+  const i=state.runtime.currentIndex;
   const d=new Date(),irl=d.getHours()*3600+d.getMinutes()*60+d.getSeconds();
-  await setActualStart(i,irl);
+  await setActualStart(i,irl,{syncRemainingToMain:true});
+}
+function effectiveCurrentIndex(sch=schedule(),elapsed=elapsedRaceSec()){
+  const last=Math.max(0,sch.length-1);
+  let i=Math.min(Math.max(0,state.runtime.currentIndex||0),last);
+  if(state.runtime.status!=='LIVE'||state.runtime.autoAdvanceSuppressedIndex===i)return i;
+  while(i<last&&elapsed>=sch[i].finishElapsed)i++;
+  return i;
 }
 function livePhase(sch){
   if(state.runtime.status==='PRE-RACE' && state.runtime.countdownActive) return 'COUNTDOWN';
   if(state.runtime.status==='PRE-RACE') return 'PRE-RACE';
   if(state.runtime.status==='FINISHED') return 'FINISHED';
-  const cur=Math.min(state.runtime.currentIndex,sch.length-1), elapsed=elapsedRaceSec(),r=sch[cur];
+  const elapsed=elapsedRaceSec(),cur=effectiveCurrentIndex(sch,elapsed),r=sch[cur];
   if(r&&elapsed<r.startElapsed) return 'PIT / CHANGEOVER';
   if(elapsed>=state.event.raceHours*3600) return 'FINISHED';
   return state.runtime.status;
@@ -611,12 +659,13 @@ function updateCountdownDisplay(){
 function driverChangeCountdownModel(sch=schedule(),elapsed=elapsedRaceSec()){
   const status=state.runtime.status;
   if(status==='FINISHED'||!sch.length)return {seconds:null,tone:'none',urgent:false,target:'Race finished'};
-  const cur=status==='PRE-RACE'?0:Math.min(state.runtime.currentIndex,sch.length-1);
+  const cur=status==='PRE-RACE'?0:effectiveCurrentIndex(sch,elapsed);
   const row=sch[cur],next=sch[cur+1];
   if(!row||!next)return {seconds:null,tone:'none',urgent:false,target:'No further driver change'};
   const seconds=Math.max(0,row.finishElapsed-(status==='PRE-RACE'?0:elapsed));
   const tone=seconds>1200?'green':seconds>300?'yellow':'red';
-  return {seconds,tone,urgent:seconds<=0,target:`Next: ${label(next.driver)} • projected ${secToClock(row.finish)}`};
+  const autoPaused=state.runtime.autoAdvanceSuppressedIndex===state.runtime.currentIndex;
+  return {seconds,tone,urgent:seconds<=0||autoPaused,autoPaused,target:autoPaused?'AUTO ADVANCE PAUSED after undo — use PIT NOW or Advance stint':`Next: ${label(next.driver)} • projected ${secToClock(row.finish)}`};
 }
 function updateDriverChangeCountdown(){
   const el=$('#driverChangeCountdown'),box=$('#driverChangeKpi'),target=$('#driverChangeTarget');
@@ -626,7 +675,7 @@ function updateDriverChangeCountdown(){
   if(result.tone!=='none')box.classList.add(`change-${result.tone}`);
   if(result.urgent)box.classList.add('change-urgent');
   el.textContent=result.seconds===null?'—':fmtSec(Math.ceil(result.seconds));
-  target.textContent=result.urgent?'CHANGE DUE NOW — advance stint or record next actual start':result.target;
+  target.textContent=result.autoPaused?result.target:result.urgent?'CHANGE DUE NOW — advance stint or record next actual start':result.target;
 }
 
 function raceRemainingSec(){
@@ -646,7 +695,7 @@ function incidentDriverOptions(){
   const old=sel.value;
   sel.innerHTML=state.drivers.map(d=>`<option value="${d.id}">${d.label}</option>`).join('');
   if(old && state.drivers.some(d=>d.id===old)) sel.value=old;
-  else { const cur=state.stints[state.runtime.currentIndex]?.driver; if(cur) sel.value=cur; }
+  else { const cur=state.stints[effectiveCurrentIndex()]?.driver; if(cur) sel.value=cur; }
 }
 function renderIncidentLog(){
   const box=$('#incidentList'); if(!box)return;
@@ -674,7 +723,7 @@ function renderIncidentLog(){
 }
 async function addIncident(){
   if(!canEdit()){toast('Unlock Race Control to add an incident.');return;}
-  const driver=$('#incidentDriver')?.value||state.stints[state.runtime.currentIndex]?.driver||'';
+  const driver=$('#incidentDriver')?.value||state.stints[effectiveCurrentIndex()]?.driver||'';
   const carNo=String($('#incidentCar')?.value||'').trim();
   const lapRaw=String($('#incidentLap')?.value||'').trim();
   const lap=lapRaw?Math.max(1,Math.round(Number(lapRaw)||1)):'';
@@ -879,8 +928,8 @@ async function refreshPrepData(){
 }
 
 function render(){
-  const sch=schedule(),e=state.event,cur=state.runtime.status==='PRE-RACE'?0:Math.min(state.runtime.currentIndex,Math.max(0,sch.length-1));
-  const elapsed=elapsedRaceSec(),phase=livePhase(sch),edit=canEdit();
+  const sch=schedule(),e=state.event,elapsed=elapsedRaceSec(),cur=state.runtime.status==='PRE-RACE'?0:effectiveCurrentIndex(sch,elapsed);
+  const phase=livePhase(sch),edit=canEdit();
   $('#eventTitle').textContent=`${e.name} • ${e.track}`;
   if(document.activeElement!==$('#irlStart')) $('#irlStart').value=e.irlStart;
   if(document.activeElement!==$('#serverStart')) $('#serverStart').value=e.serverStart;
@@ -945,7 +994,7 @@ function render(){
       :phase==='PIT / CHANGEOVER'
       ?`PIT / CHANGEOVER — ${label(r?.driver)} starts in ${fmtSec(Math.max(0,(r?.startElapsed||0)-elapsed))}`
       :phase==='FINISHED'?'RACE FINISHED'
-      :`${phase} — elapsed ${fmtSec(elapsed)} • ${label(r?.driver)} • stint ${cur+1}${edit?' • future stints editable':''}`;
+      :`${phase} — elapsed ${fmtSec(elapsed)} • ${label(r?.driver)} • stint ${cur+1}${state.runtime.autoAdvanceSuppressedIndex===state.runtime.currentIndex?' • AUTO ADVANCE PAUSED':''}${edit?' • future stints editable':''}`;
   }
   for(const [prefix,idx] of [['current',cur],['next',cur+1],['following',cur+2]]){
     const r=sch[idx];
@@ -968,8 +1017,9 @@ function render(){
   actualSelect.dataset.ready='1';
   actualSelect.disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualStartBtn').disabled=state.runtime.status==='PRE-RACE';
+  $('#quickActualFinishBtn').disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||Number(actualSelect.value)!==cur;
-  $('#actualStartHelp').textContent=!edit?'Tap a button, then enter the existing Race Control key on this phone.':state.runtime.status==='PRE-RACE'?'Available after the race starts.':'Choose the current or a completed stint; server time is calculated automatically.';
+  $('#actualStartHelp').textContent=!edit?'Tap a timing button, then enter the existing Race Control key on this phone.':state.runtime.status==='PRE-RACE'?'Available after the race starts.':'Choose the current or a completed stint; server start/finish is calculated automatically.';
 
   const tbody=$('#stintTable tbody');tbody.innerHTML='';
   sch.forEach((r,i)=>{
@@ -984,7 +1034,7 @@ function render(){
       <td class="num"><input class="small" type="number" min="1" data-laps="${i}" value="${r.laps}" ${locked?'disabled':''}></td>
       <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint (+45 seconds to pit time)"></td>
       <td>${secToClock(r.start)}${r.isActualStart?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}${Number.isFinite(state.runtime.serverHistory?.[i]?.serverStart)?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.serverFinish)}</td>
-      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!edit?'disabled':''}>NOW</button>`:''}</td>
+      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!edit?'disabled':''}>NOW</button>`:''}</td>
       <td><div class="rowbtns">
         <button data-up="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur+1))?'disabled':''}>↑</button>
         <button data-down="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur))?'disabled':''}>↓</button>
@@ -1006,6 +1056,7 @@ function render(){
   });
   tbody.querySelectorAll('[data-up]').forEach(x=>x.onclick=()=>move(+x.dataset.up,-1));
   tbody.querySelectorAll('[data-actual]').forEach(x=>x.onclick=()=>editActualStart(+x.dataset.actual));
+  tbody.querySelectorAll('[data-actual-finish]').forEach(x=>x.onclick=()=>editActualFinish(+x.dataset.actualFinish));
   tbody.querySelectorAll('[data-now]').forEach(x=>x.onclick=setCurrentStartNow);
   tbody.querySelectorAll('[data-down]').forEach(x=>x.onclick=()=>move(+x.dataset.down,1));
   tbody.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{
@@ -1403,7 +1454,7 @@ async function undoLastAdvance(){
   commitState();render();
   toast(`${driver} restored. Use PIT NOW or Advance stint when the change actually happens.`,6000);
 }
-function completeCurrentStint({automatic=false}={}){
+function completeCurrentStint({automatic=false,finishOverrideElapsed=null,irlFinishClock=null}={}){
   if(!canEdit()||state.runtime.status!=='LIVE')return;
   const i=state.runtime.currentIndex,sch=schedule(),elapsed=elapsedRaceSec(),r=sch[i];
   if(!r||elapsed<r.startElapsed)return;
@@ -1420,8 +1471,9 @@ function completeCurrentStint({automatic=false}={}){
   }else state.runtime.lastManualAdvanceUndo=null;
   // Automatic handovers use the planned boundary so a delayed browser tick does
   // not add drift to every later stint. PIT NOW records the exact live instant.
-  const finishElapsed=automatic?r.finishElapsed:elapsed;
+  const finishElapsed=Number.isFinite(finishOverrideElapsed)?finishOverrideElapsed:(automatic?r.finishElapsed:elapsed);
   state.runtime.actualStints[i]||={startElapsed:r.startElapsed};state.runtime.actualStints[i].finishElapsed=finishElapsed;
+  if(Number.isFinite(irlFinishClock))state.runtime.actualStints[i].irlFinishClock=irlFinishClock;
   const anchorBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
   const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   state.runtime.serverHistory ||= {};
@@ -1431,7 +1483,7 @@ function completeCurrentStint({automatic=false}={}){
   };
   state.runtime.serverRemainingHistory ||= {};
   state.runtime.serverRemainingHistory[i]=r.remaining;
-  addLog(`${automatic?'AUTO ADVANCE':'PIT NOW'} — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(finishElapsed)}`,false);
+  addLog(`${automatic?'AUTO ADVANCE':Number.isFinite(finishOverrideElapsed)?'ACTUAL FINISH':'PIT NOW'} — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(finishElapsed)}`,false);
   if(i>=state.stints.length-1){state.runtime.status='FINISHED';addLog('Final stint complete — FINISHED',false)}
   else{
     const next=i+1;state.runtime.currentIndex=next;
@@ -1448,6 +1500,12 @@ function autoAdvanceDueStint(){
   const row=schedule()[state.runtime.currentIndex];
   if(!row||elapsedRaceSec()<row.finishElapsed)return false;
   return completeCurrentStint({automatic:true})===true
+}
+function catchUpDueStints(){
+  if(!canEdit()||state.runtime.status!=='LIVE')return false;
+  let advanced=false,guard=0;
+  while(guard++<state.stints.length&&autoAdvanceDueStint())advanced=true;
+  return advanced;
 }
 function delaySchedule(mins){
   if(!canEdit()||!Number.isFinite(mins))return;
@@ -1700,8 +1758,9 @@ $('#brakePlanBtn').onclick=configureBrakePlan;
 $('#notifyBtn').onclick=enableNotifications;
 $('#refreshPrepBtn').onclick=refreshPrepData;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
-$('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==state.runtime.currentIndex;};
+$('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==effectiveCurrentIndex();};
 $('#quickActualStartBtn').onclick=async()=>{if(await unlockControlWithPrompt())await editActualStart(Number($('#actualStartStintSelect').value));};
+$('#quickActualFinishBtn').onclick=async()=>{if(await unlockControlWithPrompt())await editActualFinish(Number($('#actualStartStintSelect').value));};
 $('#quickActualNowBtn').onclick=async()=>{if(await unlockControlWithPrompt())await setCurrentStartNow();};
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverRemainingHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null,serverRemainingAnchorStintIndex:null,lastManualAdvanceUndo:null,autoAdvanceSuppressedIndex:null};commitState();render()}};
@@ -1767,7 +1826,7 @@ setInterval(()=>{
     if(canEdit()&&state.runtime.status==='LIVE'&&raceRemainingSec()<=0){
       state.runtime.status='FINISHED';addLog('Race countdown reached zero — FINISHED',false);commitState();
     }
-    else if(autoAdvanceDueStint()) return;
+    else if(catchUpDueStints())return;
     render();
   }
 },1000);
