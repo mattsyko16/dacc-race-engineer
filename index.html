@@ -65,6 +65,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 .brakewarn{margin-top:8px;padding:8px 10px;border:1px solid #f8c555;border-radius:9px;background:#3a2d0b;color:#ffe3a3;font-weight:800;letter-spacing:.2px}
 .brakeflag{font-weight:800;color:#f8c555}
 .incidentlog{display:flex;flex-direction:column;gap:8px}.incidentrow{display:grid;grid-template-columns:105px 70px 70px 140px 1fr auto;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line)}.incidenttime{color:var(--muted);font-size:12px}.incidentdriver{font-weight:700}.incidenttext{white-space:pre-wrap;word-break:break-word}@media(max-width:760px){.incidentrow{grid-template-columns:1fr}.incidenttime{font-size:11px}}.finish-green{border-color:var(--good)!important;background:#10271f!important}.finish-green .value{color:#6ee7b7}.finish-yellow{border-color:var(--warn)!important;background:#302815!important}.finish-yellow .value{color:#ffdb7c}.finish-red{border-color:var(--bad)!important;background:#321b1b!important}.finish-red .value{color:#ff9b9b}.finishmargin{font-size:11px;margin-top:4px;color:var(--muted)}
+
 </style>
 </head>
 <body>
@@ -72,7 +73,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.6</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.7</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -193,7 +194,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
         <div class="cardbody">
           <div class="sidegrid">
             <div class="field"><label>IRL race start</label><input id="irlStart" type="time"/></div>
-            <div class="field"><label>Server start (locked)</label><input id="serverStart" type="time" disabled/></div>
+            <div class="field"><label>Server start time</label><input id="serverStart" type="time" step="1"/></div>
             <div class="field"><label>Pit loss (sec)</label><input id="pitLossSec" type="number" step="1"/></div>
             <div class="field"><label>Race hours</label><input id="raceHours" type="number" step="1"/></div>
             <div class="field"><label>Planning avg lap (sec)</label><input id="planAvgLapSec" type="number" step=".1"/></div>
@@ -224,7 +225,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="saveIncidentsBtn">Save Incidents CSV</button>
             <button id="clearIncidentInputBtn">Clear input</button>
           </div>
-          <div class="sub" style="margin-top:8px">Shared and saved with the live race session. Adding/removing incidents requires Race Control access.</div>
+          <div class="sub" style="margin-top:8px">Shared and saved with the live race session. Everyone can view and export incidents; Race Control can add, edit and remove entries.</div>
           <div id="incidentList" class="incidentlog" style="margin-top:10px"></div>
         </div>
       </section>
@@ -235,7 +236,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.7.6 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>DACC Race Engineer V4.7.7 • editable server start • frozen history • no database changes.</footer>
 </div>
 
 <script>
@@ -475,7 +476,7 @@ function schedule(){
     const irlStart=Number.isFinite(actual.irlStartClock)?actual.irlStartClock:baseClock+startElapsed;
     const irlFinish=Number.isFinite(actual.irlFinishClock)?actual.irlFinishClock:baseClock+finishElapsed;
     const hist=state.runtime.serverHistory?.[i];
-    const computedServerStart=i===0?serverBase+(startElapsed-serverAnchorElapsed):rows[i-1].serverFinish+pit;
+    const computedServerStart=serverBase+(startElapsed-serverAnchorElapsed);
     const serverStart=Number.isFinite(hist?.serverStart)?hist.serverStart:computedServerStart;
     const serverFinish=Number.isFinite(hist?.serverFinish)?hist.serverFinish:serverStart+drive;
     rows.push({...st,i,start:irlStart,finish:irlFinish,serverStart,serverFinish,startElapsed,finishElapsed,
@@ -493,10 +494,9 @@ function parseClock(value){
   return +m[1]*3600 + +m[2]*60 + +(m[3]||0);
 }
 function nearestClock(value,near){return value+86400*Math.round((near-value)/86400)}
-function setActualStart(i,irlClock,serverClock){
+async function setActualStart(i,irlClock){
   if(!canEdit()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex||i<0)return;
   const old=schedule();
-  // Capture completed display times before changing an anchor.
   for(let j=0;j<state.runtime.currentIndex;j++){
     const a=state.runtime.actualStints[j] ||= {};
     if(!Number.isFinite(a.irlStartClock))a.irlStartClock=old[j].start;
@@ -506,32 +506,28 @@ function setActualStart(i,irlClock,serverClock){
     state.runtime.serverHistory[j].serverFinish ??= old[j].serverFinish;
   }
   const a=state.runtime.actualStints[i] ||= {};
-  const irl=nearestClock(irlClock,old[i].start),server=nearestClock(serverClock,old[i].serverStart);
-  a.irlStartClock=irl;
-  a.startElapsed=irl-actualRaceStartClockSec();
-  state.runtime.serverHistory[i] ||= {};
-  state.runtime.serverHistory[i].serverStart=server;
-  addLog(`Actual start corrected: stint ${i+1} ${label(state.stints[i].driver)} • IRL ${secToClock(irl)} • server ${secToClock(server)}`,false);
-  commitState();render();
+  const irl=nearestClock(irlClock,old[i].start);
+  a.irlStartClock=irl;a.startElapsed=irl-actualRaceStartClockSec();
+  const anchorBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
+  const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
+  const server=anchorBase+(a.startElapsed-anchorElapsed);
+  state.runtime.serverHistory[i] ||= {};state.runtime.serverHistory[i].serverStart=server;
+  const msg=`Actual start corrected: stint ${i+1} ${label(state.stints[i].driver)} • IRL ${secToClock(irl)} • server ${secToClock(server)}`;
+  addLog(msg,false);commitState();render();toast('Actual stint start saved for everyone.');
 }
 async function editActualStart(i){
   if(!canEdit()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
   const row=schedule()[i];
-  const irl=await modalAsk({title:`Stint ${i+1} actual IRL start`,text:'Enter actual IRL time as HH:MM:SS.',input:true,value:secToClock(row.start),ok:'Next'});
+  const irl=await modalAsk({title:`Stint ${i+1} actual IRL start`,text:'Enter actual IRL time as HH:MM:SS. The server time is calculated automatically.',input:true,value:secToClock(row.start),ok:'Save actual start'});
   if(irl===null)return;
   const irlSec=parseClock(irl);if(irlSec===null){toast('Enter IRL time as HH:MM:SS.');return}
-  const server=await modalAsk({title:`Stint ${i+1} actual server start`,text:'Enter actual server time as HH:MM:SS.',input:true,value:secToClock(row.serverStart),ok:'Save actual start'});
-  if(server===null)return;
-  const serverSec=parseClock(server);if(serverSec===null){toast('Enter server time as HH:MM:SS.');return}
-  setActualStart(i,irlSec,serverSec);
+  await setActualStart(i,irlSec);
 }
-function setCurrentStartNow(){
+async function setCurrentStartNow(){
   const i=state.runtime.currentIndex;
   if(!canEdit()||state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED')return;
   const d=new Date(),irl=d.getHours()*3600+d.getMinutes()*60+d.getSeconds();
-  const elapsed=elapsedRaceSec();
-  const server=(state.runtime.serverAnchorClockSec||timeToSec(state.event.serverStart))+(elapsed-(state.runtime.serverAnchorElapsedSec||0));
-  setActualStart(i,irl,((server%86400)+86400)%86400);
+  await setActualStart(i,irl);
 }
 function livePhase(sch){
   if(state.runtime.status==='PRE-RACE' && state.runtime.countdownActive) return 'COUNTDOWN';
@@ -632,13 +628,21 @@ function renderIncidentLog(){
   if(!a.length){box.innerHTML='<div class="sub">No incidents logged.</div>';return;}
   box.innerHTML=a.slice().reverse().map((x,ri)=>{
     const i=a.length-1-ri;
-    const del=canEdit()?`<button data-delincident="${i}" title="Delete incident">×</button>`:'';
+    const del=canEdit()?`<div class="rowbtns"><button data-editincident="${i}" title="Edit incident">Edit</button><button data-delincident="${i}" title="Delete incident">×</button></div>`:'';
     return `<div class="incidentrow"><div class="incidenttime">${x.irlClock||'—'}<br>Race +${Number.isFinite(x.raceElapsedSec)?fmtSec(x.raceElapsedSec):'—'}</div><div><strong>Car</strong><br>${escapeHtml(x.carNo||'—')}</div><div><strong>Lap</strong><br>${escapeHtml(x.lap||'—')}</div><div class="incidentdriver">${escapeHtml(label(x.driver)||x.driver||'—')}</div><div class="incidenttext">${escapeHtml(x.text||'')}</div><div>${del}</div></div>`;
   }).join('');
   box.querySelectorAll('[data-delincident]').forEach(b=>b.onclick=()=>{
     if(!canEdit())return;
     state.runtime.incidents.splice(+b.dataset.delincident,1);
     commitState(); renderIncidentLog();
+  });
+  box.querySelectorAll('[data-editincident]').forEach(b=>b.onclick=async()=>{
+    if(!canEdit())return;
+    const item=state.runtime.incidents[+b.dataset.editincident];if(!item)return;
+    const value=await modalAsk({title:'Edit incident',text:'Update the incident / note.',input:true,value:item.text||'',ok:'Save incident'});
+    if(value===null)return;
+    const next=String(value).trim();if(!next){toast('Incident note cannot be empty.');return}
+    item.text=next;item.editedAtMs=Date.now();commitState();renderIncidentLog();toast('Incident updated.');
   });
 }
 async function addIncident(){
@@ -649,17 +653,13 @@ async function addIncident(){
   const lap=lapRaw?Math.max(1,Math.round(Number(lapRaw)||1)):'';
   const text=String($('#incidentText')?.value||'').trim();
   if(!text){toast('Enter an incident note first.');return;}
-  if(carNo) localStorage.setItem('dacc-incident-car',carNo);
+  if(carNo)localStorage.setItem('dacc-incident-car',carNo);
+  const now=Date.now(),incident={id:`inc_${now}_${Math.random().toString(36).slice(2,8)}`,driver,carNo,lap,text,createdAtMs:now,irlClock:secToClock(localClockSecNow()),raceElapsedSec:elapsedRaceSec(),raceRemainingSec:raceRemainingSec()};
   if(!Array.isArray(state.runtime.incidents))state.runtime.incidents=[];
-  state.runtime.incidents.push({
-    id:`inc_${Date.now()}`,driver,carNo,lap,text,createdAtMs:Date.now(),
-    irlClock:secToClock(localClockSecNow()),
-    raceElapsedSec:elapsedRaceSec(),
-    raceRemainingSec:raceRemainingSec()
-  });
-  addLog(`INCIDENT: ${label(driver)} — ${text}`,false);
-  $('#incidentText').value=''; if($('#incidentLap')) $('#incidentLap').value='';
-  commitState(); renderIncidentLog(); toast('Incident saved.');
+  state.runtime.incidents.push(incident);
+  const msg=`INCIDENT: ${label(driver)} — ${text}`;
+  $('#incidentText').value='';if($('#incidentLap'))$('#incidentLap').value='';
+  addLog(msg,false);commitState();renderIncidentLog();toast('Incident saved for everyone.');
 }
 function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function saveIncidentsCSV(){
@@ -856,7 +856,7 @@ function render(){
   const elapsed=elapsedRaceSec(),phase=livePhase(sch),edit=canEdit();
   $('#eventTitle').textContent=`${e.name} • ${e.track}`;
   if(document.activeElement!==$('#irlStart')) $('#irlStart').value=e.irlStart;
-  $('#serverStart').value=e.serverStart;
+  if(document.activeElement!==$('#serverStart')) $('#serverStart').value=e.serverStart;
   if(document.activeElement!==$('#pitLossSec')) $('#pitLossSec').value=e.pitLossSec;
   if(document.activeElement!==$('#raceHours')) $('#raceHours').value=e.raceHours;
   if(document.activeElement!==$('#planAvgLapSec')) $('#planAvgLapSec').value=e.avgLapSec;
@@ -895,13 +895,14 @@ function render(){
   pauseBtn.disabled=!edit||!['LIVE','PAUSED'].includes(state.runtime.status);
   pauseBtn.textContent=state.runtime.status==='PAUSED'?'RESUME':'PAUSE';
   pitBtn.disabled=!edit||state.runtime.status!=='LIVE'||phase==='PIT / CHANGEOVER';
-  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','serverResyncBtn','advanceBtn','addStintBtn','brakePlanBtn','addIncidentBtn','resetBtn','recalcBtn','saveBtn']){
+  for(const id of ['plusLapBtn','minusLapBtn','delayBtn','serverResyncBtn','advanceBtn','addStintBtn','brakePlanBtn','resetBtn','recalcBtn','saveBtn']){
     $('#'+id).disabled=!edit;
   }
   $('#countdownBtn').disabled=!edit || state.runtime.status!=='PRE-RACE' || state.runtime.countdownActive;
   $('#countdownSetBtn').disabled=!edit || state.runtime.status!=='PRE-RACE';
   $('#importFile').disabled=!edit;
-  for(const id of ['irlStart','pitLossSec','raceHours','planAvgLapSec']) $('#'+id).disabled=!edit;
+  for(const id of ['irlStart','serverStart','pitLossSec','raceHours','planAvgLapSec']) $('#'+id).disabled=!edit;
+  $('#addIncidentBtn').disabled=!edit;
   $('#strategyNotes').disabled=!edit;
   for(const id of ['calcFuelBtn','useCurrentBtn','voicePasteBtn','tapTestBtn']){
     const el=$('#'+id); if(el) el.disabled=false;
@@ -1561,7 +1562,24 @@ $('#refreshPrepBtn').onclick=refreshPrepData;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null};commitState();render()}};
-$('#recalcBtn').onclick=()=>{if(!canEdit())return;state.event.irlStart=$('#irlStart').value;state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;addLog('Schedule recalculated',false);commitState();render()};
+$('#recalcBtn').onclick=()=>{
+  if(!canEdit())return;
+  const old=schedule(),newServerStart=$('#serverStart').value;
+  if(!newServerStart){toast('Enter a valid Server Start Time.');return}
+  state.runtime.serverHistory ||= {};
+  for(let i=0;i<state.runtime.currentIndex;i++){
+    const actual=state.runtime.actualStints[i]||{};
+    if(Number.isFinite(actual.finishElapsed))state.runtime.serverHistory[i]={serverStart:old[i].serverStart,serverFinish:old[i].serverFinish};
+  }
+  const changed=state.event.serverStart!==newServerStart;
+  state.event.irlStart=$('#irlStart').value;state.event.serverStart=newServerStart;
+  state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;
+  if(changed){
+    state.runtime.serverAnchorClockSec=timeToSec(newServerStart);state.runtime.serverAnchorElapsedSec=0;state.runtime.serverRemainingAnchorSec=null;
+    for(const key of Object.keys(state.runtime.serverHistory))if(+key>=state.runtime.currentIndex)delete state.runtime.serverHistory[key];
+  }
+  addLog(changed?`Server Start Time changed to ${newServerStart}; current/future projections recalculated`:'Schedule recalculated',false);commitState();render();
+};
 $('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
 $('#exportBtn').onclick=()=>{saveLocal();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dacc-race-state.json';a.click();URL.revokeObjectURL(a.href)};
 $('#importFile').onchange=async e=>{if(!canEdit())return;const f=e.target.files[0];if(!f)return;state=JSON.parse(await f.text());migrateRuntime();addLog('Imported JSON',false);commitState();render()};
