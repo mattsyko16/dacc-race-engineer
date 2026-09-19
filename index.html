@@ -72,7 +72,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.5</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.6</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -235,7 +235,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>Race-control V4.7.5 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
+  <footer>Race-control V4.7.6 • race-night hardened • safe downstream delay • frozen history • conflict guard.</footer>
 </div>
 
 <script>
@@ -377,7 +377,13 @@ function renderSharedMeta(){
   $('#roleBadge').style.color=canEdit()?'var(--good)':'var(--muted)';
   $('#lastUpdated').textContent=shared.lastUpdated?new Date(shared.lastUpdated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
   $('#sessionCodeInput').value=shared.code||$('#sessionCodeInput').value||'';
-  $('#controlKeyInput').value=shared.controlKey||'';
+  // Do not rewrite an unlock key while a viewer is typing it. Live race renders
+  // run every second, so assigning an empty shared.controlKey here used to erase
+  // the field before mobile users could finish entering the key.
+  const controlKeyInput=$('#controlKeyInput');
+  if(shared.controlKey){
+    if(controlKeyInput.value!==shared.controlKey)controlKeyInput.value=shared.controlKey;
+  }
   $('#copySessionBtn').disabled=!shared.code;
   $('#leaveSessionBtn').disabled=!shared.code;
   $('#createSessionBtn').disabled=!!shared.code || !shared.supabase;
@@ -1472,7 +1478,7 @@ async function unlockControl(){
 }
 async function leaveSession(){
   await unsubscribeShared();shared.code=null;shared.controlKey=null;shared.isController=false;shared.lastUpdated=null;
-  localStorage.removeItem('dacc-session-code');setSyncStatus('LOCAL');render();
+  localStorage.removeItem('dacc-session-code');$('#controlKeyInput').value='';setSyncStatus('LOCAL');render();
 }
 async function copyViewerLink(){
   if(!shared.code)return;
