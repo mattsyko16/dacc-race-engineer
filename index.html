@@ -74,7 +74,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.7</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.8</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -113,7 +113,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="plusLapBtn">+1 lap current</button>
             <button id="minusLapBtn">−1 lap current</button>
             <button class="warn" id="delayBtn">Delay downstream</button><button id="serverResyncBtn">SERVER RESET / RESYNC</button>
-            <button id="advanceBtn">Advance stint</button>
+            <button id="advanceBtn">Advance stint</button><button class="warn" id="undoAdvanceBtn" disabled>Undo advance</button>
             <button id="addStintBtn">+ Add stint</button><button id="brakePlanBtn">BRAKE PLAN</button>
             <button id="resetBtn">Reset race state</button>
           </div>
@@ -244,7 +244,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V4.7.7 • editable server start • frozen history • no database changes.</footer>
+  <footer>DACC Race Engineer V4.7.8 • server remaining sync • frozen history • no database changes.</footer>
 </div>
 
 <script>
@@ -318,8 +318,12 @@ function migrateRuntime(){
   if(!Number.isFinite(r.serverAnchorElapsedSec)) r.serverAnchorElapsedSec=0;
   if(!Number.isFinite(r.serverAnchorClockSec)) r.serverAnchorClockSec=timeToSec(state.event.serverStart||'10:00');
   if(!Number.isFinite(r.serverRemainingAnchorSec)) r.serverRemainingAnchorSec=null;
+  if(!Number.isInteger(r.serverRemainingAnchorStintIndex)) r.serverRemainingAnchorStintIndex=null;
   if(!r.plannedDelays || typeof r.plannedDelays!=='object') r.plannedDelays={};
   if(!r.serverHistory || typeof r.serverHistory!=='object') r.serverHistory={};
+  if(!r.serverRemainingHistory || typeof r.serverRemainingHistory!=='object') r.serverRemainingHistory={};
+  if(!r.lastManualAdvanceUndo || typeof r.lastManualAdvanceUndo!=='object') r.lastManualAdvanceUndo=null;
+  if(!Number.isInteger(r.autoAdvanceSuppressedIndex)) r.autoAdvanceSuppressedIndex=null;
   if(!Array.isArray(r.incidents)) r.incidents=[];
   state.prep ||= {driverBaselines:{},source:null};
   state.prep.driverBaselines ||= {};
@@ -336,6 +340,10 @@ function migrateRuntime(){
     r.actualStints=[];
     r.plannedDelays={};
     r.serverHistory={};
+    r.serverRemainingHistory={};
+    r.serverRemainingAnchorStintIndex=null;
+    r.lastManualAdvanceUndo=null;
+    r.autoAdvanceSuppressedIndex=null;
   }
 }
 migrateRuntime();
@@ -487,10 +495,17 @@ function schedule(){
     const computedServerStart=serverBase+(startElapsed-serverAnchorElapsed);
     const serverStart=Number.isFinite(hist?.serverStart)?hist.serverStart:computedServerStart;
     const serverFinish=Number.isFinite(hist?.serverFinish)?hist.serverFinish:serverStart+drive;
+    const savedRemaining=Number(state.runtime.serverRemainingHistory?.[i]);
+    const anchorStint=state.runtime.serverRemainingAnchorStintIndex;
+    const remaining=Number.isFinite(savedRemaining)
+      ? Math.max(0,savedRemaining)
+      : Number.isFinite(state.runtime.serverRemainingAnchorSec)
+        ? Math.max(0,i===anchorStint
+          ? state.runtime.serverRemainingAnchorSec
+          : state.runtime.serverRemainingAnchorSec-(startElapsed-serverAnchorElapsed))
+        : Math.max(0,e.raceHours*3600-startElapsed);
     rows.push({...st,i,start:irlStart,finish:irlFinish,serverStart,serverFinish,startElapsed,finishElapsed,
-      remaining:Number.isFinite(state.runtime.serverRemainingAnchorSec)
-        ? Math.max(0,state.runtime.serverRemainingAnchorSec-(startElapsed-serverAnchorElapsed))
-        : Math.max(0,e.raceHours*3600-startElapsed),drive,plannedDrive,
+      remaining,drive,plannedDrive,
       avail:availabilityContains(st.driver,irlStart,irlFinish),
       isActualStart:Number.isFinite(actual.startElapsed),isActualFinish:Number.isFinite(actual.finishElapsed)});
   });
@@ -906,6 +921,7 @@ function render(){
   for(const id of ['plusLapBtn','minusLapBtn','delayBtn','serverResyncBtn','advanceBtn','addStintBtn','brakePlanBtn','resetBtn','recalcBtn','saveBtn']){
     $('#'+id).disabled=!edit;
   }
+  $('#undoAdvanceBtn').disabled=!edit||!canUndoAdvance();
   $('#countdownBtn').disabled=!edit || state.runtime.status!=='PRE-RACE' || state.runtime.countdownActive;
   $('#countdownSetBtn').disabled=!edit || state.runtime.status!=='PRE-RACE';
   $('#importFile').disabled=!edit;
@@ -1216,8 +1232,8 @@ async function serverResync(){
   if(!canEdit()) return;
   const mode=await modalAsk({
     title:'Server reset / resync',
-    text:'Type CLOCK to reset the server clock, or REMAINING to correct the official Race Remaining countdown.',
-    input:true,value:'CLOCK',ok:'Next'
+    text:'Type REMAINING to set the official race time left and sync it to the current driver, or CLOCK to reset only the server clock.',
+    input:true,value:'REMAINING',ok:'Next'
   });
   if(mode===null) return;
   const m=String(mode).trim().toUpperCase();
@@ -1226,11 +1242,13 @@ async function serverResync(){
   const elapsed=elapsedRaceSec();
   // Freeze completed server history before moving the server anchor.
   state.runtime.serverHistory ||= {};
+  state.runtime.serverRemainingHistory ||= {};
   const preResyncSchedule=schedule();
   preResyncSchedule.forEach((row,i)=>{
     const actual=state.runtime.actualStints[i]||{};
     if(Number.isFinite(actual.finishElapsed)){
       state.runtime.serverHistory[i]={serverStart:row.serverStart,serverFinish:row.serverFinish};
+      state.runtime.serverRemainingHistory[i]=row.remaining;
     }
   });
 
@@ -1270,7 +1288,9 @@ async function serverResync(){
     state.runtime.serverAnchorElapsedSec=elapsed;
     state.runtime.serverAnchorClockSec=currentServerClock;
     state.runtime.serverRemainingAnchorSec=sec;
-    addLog(`SERVER RESET: race remaining resynced to ${fmtSec(sec)} at IRL race elapsed ${fmtSec(elapsed)}`,false);
+    state.runtime.serverRemainingAnchorStintIndex=state.runtime.currentIndex;
+    delete state.runtime.serverRemainingHistory[state.runtime.currentIndex];
+    addLog(`SERVER RESET: stint ${state.runtime.currentIndex+1} ${label(state.stints[state.runtime.currentIndex]?.driver)} synced to ${fmtSec(sec)} server remaining at IRL race elapsed ${fmtSec(elapsed)}`,false);
   }
 
   commitState(); render();
@@ -1289,7 +1309,8 @@ async function startRace(auto=false){
   state.runtime.startClockSec=localClockSecNow();state.runtime.countdownEndsAtMs=null;state.runtime.countdownActive=false;
   state.runtime.serverAnchorElapsedSec=0;
   state.runtime.serverAnchorClockSec=timeToSec(state.event.serverStart);
-  state.runtime.serverRemainingAnchorSec=null;state.runtime.totalPausedMs=0;state.runtime.pausedAtMs=null;
+  state.runtime.serverRemainingAnchorSec=null;state.runtime.serverRemainingAnchorStintIndex=null;state.runtime.serverRemainingHistory={};state.runtime.totalPausedMs=0;state.runtime.pausedAtMs=null;
+  state.runtime.lastManualAdvanceUndo=null;state.runtime.autoAdvanceSuppressedIndex=null;
   state.runtime.manualElapsedSec=0;state.runtime.actualStints=[{startElapsed:0}];
   addLog(auto
     ? `COUNTDOWN COMPLETE — RACE CLOCK STARTED • IRL ${secToClock(state.runtime.startClockSec)} • server ${state.event.serverStart}`
@@ -1311,11 +1332,74 @@ function pauseResume(){
   }
   commitState();render()
 }
+function savedEntry(collection,index){
+  return Object.prototype.hasOwnProperty.call(collection||{},index)?deepClone(collection[index]):null;
+}
+function restoreEntry(collection,index,value){
+  if(value===null)delete collection[index];
+  else collection[index]=deepClone(value);
+}
+function canUndoAdvance(){
+  const u=state.runtime.lastManualAdvanceUndo;
+  const saved=!!u&&Number.isInteger(u.fromIndex)&&Number.isInteger(u.toIndex)&&state.runtime.currentIndex===u.toIndex&&['LIVE','FINISHED'].includes(state.runtime.status);
+  if(saved)return true;
+  const current=state.runtime.currentIndex,previous=state.runtime.actualStints?.[current-1];
+  return state.runtime.status==='LIVE'&&current>0&&Number.isFinite(previous?.finishElapsed);
+}
+async function undoLastAdvance(){
+  if(!canEdit()||!canUndoAdvance())return;
+  const saved=state.runtime.lastManualAdvanceUndo;
+  const hasSaved=!!saved&&Number.isInteger(saved.fromIndex)&&Number.isInteger(saved.toIndex)&&state.runtime.currentIndex===saved.toIndex;
+  const u=hasSaved?saved:{fromIndex:state.runtime.currentIndex-1,toIndex:state.runtime.currentIndex,statusBefore:'LIVE',inferred:true};
+  const driver=label(state.stints[u.fromIndex]?.driver);
+  const ok=await modalAsk({title:'Undo last stint advance?',text:`Return ${driver} (stint ${u.fromIndex+1}) to the car and remove the mistaken completion/next-stint timing?`,ok:'UNDO ADVANCE'});
+  if(!ok)return;
+  state.runtime.actualStints ||= [];
+  state.runtime.serverHistory ||= {};
+  state.runtime.serverRemainingHistory ||= {};
+  if(u.inferred){
+    const previousActual=deepClone(state.runtime.actualStints[u.fromIndex]||{});
+    delete previousActual.finishElapsed;delete previousActual.irlFinishClock;
+    state.runtime.actualStints[u.fromIndex]=previousActual;
+    delete state.runtime.actualStints[u.toIndex];
+    const previousServer=deepClone(state.runtime.serverHistory[u.fromIndex]||{});
+    delete previousServer.serverFinish;
+    if(Object.keys(previousServer).length)state.runtime.serverHistory[u.fromIndex]=previousServer;
+    else delete state.runtime.serverHistory[u.fromIndex];
+    delete state.runtime.serverHistory[u.toIndex];
+    delete state.runtime.serverRemainingHistory[u.fromIndex];
+    delete state.runtime.serverRemainingHistory[u.toIndex];
+  }else{
+    restoreEntry(state.runtime.actualStints,u.fromIndex,u.fromActual);
+    if(u.toIndex!==u.fromIndex)restoreEntry(state.runtime.actualStints,u.toIndex,u.toActual);
+    restoreEntry(state.runtime.serverHistory,u.fromIndex,u.fromServerHistory);
+    if(u.toIndex!==u.fromIndex)restoreEntry(state.runtime.serverHistory,u.toIndex,u.toServerHistory);
+    restoreEntry(state.runtime.serverRemainingHistory,u.fromIndex,u.fromRemainingHistory);
+    if(u.toIndex!==u.fromIndex)restoreEntry(state.runtime.serverRemainingHistory,u.toIndex,u.toRemainingHistory);
+  }
+  state.runtime.currentIndex=u.fromIndex;
+  state.runtime.status=u.statusBefore||'LIVE';
+  state.runtime.autoAdvanceSuppressedIndex=u.fromIndex;
+  state.runtime.lastManualAdvanceUndo=null;
+  addLog(`UNDO ADVANCE — ${driver} restored as current driver on stint ${u.fromIndex+1}; automatic advance paused for this stint`,false);
+  commitState();render();
+  toast(`${driver} restored. Use PIT NOW or Advance stint when the change actually happens.`,6000);
+}
 function completeCurrentStint({automatic=false}={}){
   if(!canEdit()||state.runtime.status!=='LIVE')return;
   const i=state.runtime.currentIndex,sch=schedule(),elapsed=elapsedRaceSec(),r=sch[i];
   if(!r||elapsed<r.startElapsed)return;
   if(automatic&&elapsed<r.finishElapsed)return;
+  if(!automatic){
+    const toIndex=Math.min(state.stints.length-1,i+1);
+    state.runtime.lastManualAdvanceUndo={
+      fromIndex:i,toIndex,statusBefore:state.runtime.status,createdAt:Date.now(),
+      fromActual:savedEntry(state.runtime.actualStints,i),toActual:savedEntry(state.runtime.actualStints,toIndex),
+      fromServerHistory:savedEntry(state.runtime.serverHistory,i),toServerHistory:savedEntry(state.runtime.serverHistory,toIndex),
+      fromRemainingHistory:savedEntry(state.runtime.serverRemainingHistory,i),toRemainingHistory:savedEntry(state.runtime.serverRemainingHistory,toIndex)
+    };
+    state.runtime.autoAdvanceSuppressedIndex=null;
+  }else state.runtime.lastManualAdvanceUndo=null;
   // Automatic handovers use the planned boundary so a delayed browser tick does
   // not add drift to every later stint. PIT NOW records the exact live instant.
   const finishElapsed=automatic?r.finishElapsed:elapsed;
@@ -1327,6 +1411,8 @@ function completeCurrentStint({automatic=false}={}){
     serverStart:r.serverStart,
     serverFinish:Math.max(r.serverStart,anchorBase+(finishElapsed-anchorElapsed))
   };
+  state.runtime.serverRemainingHistory ||= {};
+  state.runtime.serverRemainingHistory[i]=r.remaining;
   addLog(`${automatic?'AUTO ADVANCE':'PIT NOW'} — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(finishElapsed)}`,false);
   if(i>=state.stints.length-1){state.runtime.status='FINISHED';addLog('Final stint complete — FINISHED',false)}
   else{
@@ -1339,6 +1425,7 @@ function completeCurrentStint({automatic=false}={}){
 function pitNow(){return completeCurrentStint()}
 function autoAdvanceDueStint(){
   if(!canEdit()||state.runtime.status!=='LIVE')return false;
+  if(state.runtime.autoAdvanceSuppressedIndex===state.runtime.currentIndex)return false;
   const row=schedule()[state.runtime.currentIndex];
   if(!row||elapsedRaceSec()<row.finishElapsed)return false;
   return completeCurrentStint({automatic:true})===true
@@ -1584,6 +1671,7 @@ for(const id of ['fuelPerLap','avgLapSec','tankLitres','fuelMarginLaps']) $('#'+
 $('#plusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.currentIndex].laps++;addLog('+1 lap current stint',false);commitState();render()};
 $('#minusLapBtn').onclick=()=>{if(!canEdit())return;state.stints[state.runtime.currentIndex].laps=Math.max(1,state.stints[state.runtime.currentIndex].laps-1);addLog('-1 lap current stint',false);commitState();render()};
 $('#advanceBtn').onclick=()=>{if(!canEdit())return;if(state.runtime.status==='LIVE'){pitNow();return}state.runtime.currentIndex=Math.min(state.stints.length-1,state.runtime.currentIndex+1);addLog(`Advanced to stint ${state.runtime.currentIndex+1}`,false);commitState();render()};
+$('#undoAdvanceBtn').onclick=undoLastAdvance;
 $('#pitNowBtn').onclick=pitNow;
 $('#serverResyncBtn').onclick=serverResync;
 $('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay FUTURE planned schedule by how many minutes? Current/completed timing is preserved.',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
@@ -1595,22 +1683,28 @@ $('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSe
 $('#quickActualStartBtn').onclick=async()=>{if(await unlockControlWithPrompt())await editActualStart(Number($('#actualStartStintSelect').value));};
 $('#quickActualNowBtn').onclick=async()=>{if(await unlockControlWithPrompt())await setCurrentStartNow();};
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
-$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null};commitState();render()}};
+$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverRemainingHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null,serverRemainingAnchorStintIndex:null,lastManualAdvanceUndo:null,autoAdvanceSuppressedIndex:null};commitState();render()}};
 $('#recalcBtn').onclick=()=>{
   if(!canEdit())return;
   const old=schedule(),newServerStart=$('#serverStart').value;
   if(!newServerStart){toast('Enter a valid Server Start Time.');return}
   state.runtime.serverHistory ||= {};
+  state.runtime.serverRemainingHistory ||= {};
   for(let i=0;i<state.runtime.currentIndex;i++){
     const actual=state.runtime.actualStints[i]||{};
-    if(Number.isFinite(actual.finishElapsed))state.runtime.serverHistory[i]={serverStart:old[i].serverStart,serverFinish:old[i].serverFinish};
+    if(Number.isFinite(actual.finishElapsed)){
+      state.runtime.serverHistory[i]={serverStart:old[i].serverStart,serverFinish:old[i].serverFinish};
+      state.runtime.serverRemainingHistory[i]=old[i].remaining;
+    }
   }
   const changed=state.event.serverStart!==newServerStart;
   state.event.irlStart=$('#irlStart').value;state.event.serverStart=newServerStart;
   state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;
   if(changed){
-    state.runtime.serverAnchorClockSec=timeToSec(newServerStart);state.runtime.serverAnchorElapsedSec=0;state.runtime.serverRemainingAnchorSec=null;
+    state.runtime.serverAnchorClockSec=timeToSec(newServerStart);state.runtime.serverAnchorElapsedSec=0;state.runtime.serverRemainingAnchorSec=null;state.runtime.serverRemainingAnchorStintIndex=null;
     for(const key of Object.keys(state.runtime.serverHistory))if(+key>=state.runtime.currentIndex)delete state.runtime.serverHistory[key];
+    state.runtime.serverRemainingHistory ||= {};
+    for(const key of Object.keys(state.runtime.serverRemainingHistory))if(+key>=state.runtime.currentIndex)delete state.runtime.serverRemainingHistory[key];
   }
   addLog(changed?`Server Start Time changed to ${newServerStart}; current/future projections recalculated`:'Schedule recalculated',false);commitState();render();
 };
