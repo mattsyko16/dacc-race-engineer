@@ -946,10 +946,10 @@ function render(){
   actualSelect.innerHTML=sch.slice(0,cur+1).map((r,i)=>`<option value="${i}">Stint ${i+1} • ${escapeHtml(label(r.driver))}${i===cur?' • CURRENT':' • COMPLETED'}</option>`).join('');
   actualSelect.value=Number.isInteger(selectedActual)&&selectedActual>=0&&selectedActual<=cur?String(selectedActual):String(cur);
   actualSelect.dataset.ready='1';
-  actualSelect.disabled=!edit||state.runtime.status==='PRE-RACE';
-  $('#quickActualStartBtn').disabled=!edit||state.runtime.status==='PRE-RACE';
-  $('#quickActualNowBtn').disabled=!edit||state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||Number(actualSelect.value)!==cur;
-  $('#actualStartHelp').textContent=!edit?'Unlock Race Control on this device to change actual starts.':state.runtime.status==='PRE-RACE'?'Available after the race starts.':'Choose the current or a completed stint; server time is calculated automatically.';
+  actualSelect.disabled=state.runtime.status==='PRE-RACE';
+  $('#quickActualStartBtn').disabled=state.runtime.status==='PRE-RACE';
+  $('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||Number(actualSelect.value)!==cur;
+  $('#actualStartHelp').textContent=!edit?'Tap a button, then enter the existing Race Control key on this phone.':state.runtime.status==='PRE-RACE'?'Available after the race starts.':'Choose the current or a completed stint; server time is calculated automatically.';
 
   const tbody=$('#stintTable tbody');tbody.innerHTML='';
   sch.forEach((r,i)=>{
@@ -1494,6 +1494,20 @@ async function unlockControl(){
     toast('Race Control unlocked on this device.');render();
   }else toast('Race Control key not recognised.');
 }
+async function unlockControlWithPrompt(){
+  if(canEdit())return true;
+  if(!shared.code){toast('Join the shared race first.');return false;}
+  const value=await modalAsk({title:'Unlock Race Control on this device',text:'Enter the existing Race Control key to change Actual Start on this phone.',input:true,value:$('#controlKeyInput').value||'',ok:'Unlock'});
+  if(value===null)return false;
+  const key=String(value).trim();
+  if(!key){toast('Enter the Race Control key.');return false;}
+  $('#controlKeyInput').value=key;
+  if(!await verifyController(shared.code,key)){toast('Race Control key not recognised.');return false;}
+  shared.controlKey=key;shared.isController=true;
+  localStorage.setItem(`dacc-control-key:${shared.code}`,key);
+  toast('Race Control unlocked on this device.');render();
+  return true;
+}
 async function leaveSession(){
   await unsubscribeShared();shared.code=null;shared.controlKey=null;shared.isController=false;shared.lastUpdated=null;
   localStorage.removeItem('dacc-session-code');$('#controlKeyInput').value='';setSyncStatus('LOCAL');render();
@@ -1577,9 +1591,9 @@ $('#brakePlanBtn').onclick=configureBrakePlan;
 $('#notifyBtn').onclick=enableNotifications;
 $('#refreshPrepBtn').onclick=refreshPrepData;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
-$('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=!canEdit()||state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==state.runtime.currentIndex;};
-$('#quickActualStartBtn').onclick=()=>editActualStart(Number($('#actualStartStintSelect').value));
-$('#quickActualNowBtn').onclick=setCurrentStartNow;
+$('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==state.runtime.currentIndex;};
+$('#quickActualStartBtn').onclick=async()=>{if(await unlockControlWithPrompt())await editActualStart(Number($('#actualStartStintSelect').value));};
+$('#quickActualNowBtn').onclick=async()=>{if(await unlockControlWithPrompt())await setCurrentStartNow();};
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null};commitState();render()}};
 $('#recalcBtn').onclick=()=>{
