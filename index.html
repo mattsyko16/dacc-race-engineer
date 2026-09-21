@@ -60,14 +60,14 @@ select{min-width:120px} input.small{width:72px}
 .log{height:115px;overflow:auto;background:#0e1218;border:1px solid var(--line);border-radius:8px;padding:8px;color:#bac4d3;font-size:12px}
 .totalstable table{min-width:0}.totalstable td,.totalstable th{padding:6px}
 .warning{padding:8px 10px;border-radius:8px;background:#332b17;color:#ffdb7c;border:1px solid #5a491f;margin-top:8px}.syncrow{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.sessioncode{font-size:20px;font-weight:900;letter-spacing:.12em}.goodtext{color:var(--good)}.badtext{color:var(--bad)}
-.hidden{display:none !important;pointer-events:none !important}.modalback{position:fixed;pointer-events:auto;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;z-index:9999;padding:18px}.modalbox{width:min(480px,100%);background:#151b25;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px}.modalbox h3{margin:0 0 8px;font-size:18px}.modalbox p{color:#cbd5e5}.modalbox input{width:100%;margin:8px 0 12px}.toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#17202c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);max-width:360px}
+.hidden{display:none !important;pointer-events:none !important}.modalback{position:fixed;pointer-events:auto;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;z-index:9999;padding:18px}.modalbox{width:min(480px,100%);background:#151b25;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px}.modalbox h3{margin:0 0 8px;font-size:18px}.modalbox p{color:#cbd5e5;white-space:pre-wrap}.modalbox input{width:100%;margin:8px 0 12px}.toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#17202c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);max-width:360px}
 textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:8px;padding:8px;resize:vertical}
 footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 .prepsummary{margin-top:9px;padding:9px;border:1px solid var(--line);border-radius:9px;background:#101722;font-size:12px}.prepsummary strong{color:#dfe8fa}.prepsummary .prepgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 9px;margin-top:8px}.prepsummary .prepgrid span{min-width:0;overflow-wrap:anywhere}.prepsummary .prepgrid .prepwide{grid-column:1/-1}.prepsummary .pressurelabel{margin-top:10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em}.prepsummary .pressuregrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:5px}.prepsummary .pressurecell{display:flex;justify-content:space-between;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#172131;font-variant-numeric:tabular-nums}.prepsummary .pressurecell b{color:#f4f6fb}.prepsummary details{margin-top:8px}.prepsummary summary{cursor:pointer;color:var(--accent)}.prepsummary .prepline{margin-top:5px;color:#cbd5e5;white-space:pre-wrap}.actualbadge{font-size:10px;color:var(--good);font-weight:800}.prepmeta{font-size:11px;color:var(--muted);margin-top:6px}
 .brakewarn{margin-top:8px;padding:8px 10px;border:1px solid #f8c555;border-radius:9px;background:#3a2d0b;color:#ffe3a3;font-weight:800;letter-spacing:.2px}
 .brakeflag{font-weight:800;color:#f8c555}
 .incidentlog{display:flex;flex-direction:column;gap:8px}.incidentrow{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}.incidentrow>div{min-width:0}.incidenttime{flex:0 1 110px;color:var(--muted);font-size:12px}.incidentrow>div:nth-child(2),.incidentrow>div:nth-child(3){flex:0 1 58px}.incidentdriver{flex:1 1 100px;font-weight:700}.incidentrow>div:last-child{flex:0 0 auto;margin-left:auto}.incidenttext{order:10;flex:1 0 100%;width:100%;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;line-height:1.45;padding:7px 9px;border-radius:7px;background:#101722}@media(max-width:760px){.incidentrow{gap:7px 11px}.incidenttime{font-size:11px}.incidentdriver{flex-basis:80px}.incidentrow>div:last-child{margin-left:0}.incidenttext{font-size:13px}}.finish-green{border-color:var(--good)!important;background:#10271f!important}.finish-green .value{color:#6ee7b7}.finish-yellow{border-color:var(--warn)!important;background:#302815!important}.finish-yellow .value{color:#ffdb7c}.finish-red{border-color:var(--bad)!important;background:#321b1b!important}.finish-red .value{color:#ff9b9b}.finishmargin{font-size:11px;margin-top:4px;color:var(--muted)}
-.planning{margin-top:12px}.planning summary{cursor:pointer;padding:13px 14px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}.planning summary::marker{color:var(--accent)}.planninggrid{display:grid;grid-template-columns:repeat(4,minmax(125px,1fr));gap:8px}.planninggrid .field input,.planninggrid .field select{width:100%}.planstatus{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:9px 0}.statuspill{border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-weight:800}.status-valid{color:#6ee7b7;border-color:var(--good)}.status-warnings{color:#ffdb7c;border-color:var(--warn)}.status-invalid{color:#ff9b9b;border-color:var(--bad)}.driverplanning{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.driverplan{border:1px solid var(--line);border-radius:9px;background:#101722;padding:9px}.driverplan h3{font-size:14px;margin:0 0 7px}.availabilityline{font-size:12px;color:#cbd5e5;overflow-wrap:anywhere}.planmessages{margin-top:8px;font-size:12px;white-space:pre-wrap}.livetiming{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.timingcell{background:#101722;border:1px solid var(--line);border-radius:8px;padding:7px}.timingcell .sub{font-size:10px}.timingcell strong{display:block;font-size:16px;margin-top:2px}.timingstatus{font-weight:900}.timing-live{color:var(--good)}.timing-stale{color:var(--warn)}.timing-offline{color:var(--bad)}.provisional{color:var(--warn);font-weight:800}.lockbox{width:18px;height:18px}@media(max-width:760px){.planninggrid,.driverplanning{grid-template-columns:1fr 1fr}.livetiming{grid-template-columns:repeat(2,1fr)}.planning .toolbar button{flex:1 1 140px}}@media(max-width:460px){.planninggrid,.driverplanning{grid-template-columns:1fr}}
+.planning{margin-top:12px}.planning summary{cursor:pointer;padding:13px 14px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}.planning summary::marker{color:var(--accent)}.planninggrid{display:grid;grid-template-columns:repeat(4,minmax(125px,1fr));gap:8px}.planninggrid .field input,.planninggrid .field select{width:100%}.planstatus{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:9px 0}.statuspill{border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-weight:800}.status-valid{color:#6ee7b7;border-color:var(--good)}.status-warnings{color:#ffdb7c;border-color:var(--warn)}.status-invalid{color:#ff9b9b;border-color:var(--bad)}.driverplanning{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.driverplan{border:1px solid var(--line);border-radius:9px;background:#101722;padding:9px}.driverplan h3{font-size:14px;margin:0 0 7px}.availabilityline{font-size:12px;color:#cbd5e5;overflow-wrap:anywhere}.planmessages{margin-top:8px;font-size:12px;white-space:pre-wrap}.livetiming{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.timingcell{background:#101722;border:1px solid var(--line);border-radius:8px;padding:7px;min-width:0}.timingcell .sub{font-size:10px}.timingcell strong{display:block;font-size:16px;margin-top:2px}.timingentry{font-size:12px!important;line-height:1.25;overflow-wrap:anywhere;white-space:normal}.timinggap{display:block;margin-top:3px;color:#cbd5e5;font-variant-numeric:tabular-nums}.timingstatus{font-weight:900}.timing-live{color:var(--good)}.timing-stale{color:var(--warn)}.timing-offline{color:var(--bad)}.provisional{color:var(--warn);font-weight:800}.lockbox{width:18px;height:18px}@media(max-width:760px){.planninggrid,.driverplanning{grid-template-columns:1fr 1fr}.livetiming{grid-template-columns:repeat(2,1fr)}.planning .toolbar button{flex:1 1 140px}}@media(max-width:460px){.planninggrid,.driverplanning{grid-template-columns:1fr}}
 
 </style>
 </head>
@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.1</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -156,6 +156,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="regenerateScheduleBtn">Regenerate</button>
             <button id="replanFutureBtn">Replan Future Stints</button>
             <button id="validateScheduleBtn">Validate</button>
+            <button class="good" id="exportPrepBtn">Export Prep Workbook</button>
           </div>
           <div class="planstatus"><span id="planStatus" class="statuspill">Not checked</span><span class="sub" id="planSource">Availability not imported.</span></div>
           <div id="planMessages" class="planmessages"></div>
@@ -172,7 +173,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
         <div class="cardbody">
           <div class="syncrow"><span id="simbotStatus" class="timingstatus timing-offline">OFFLINE</span><span class="sub" id="simbotUpdated">Waiting for SimBot</span><a id="simbotFullLink" href="https://web.simbot.app/live-laps?server=SIM%2520Racing%2520Club%2520-%2520The%2520Proper%2520One%2520Server%25201&amp;sessionType=live&amp;dataType=race" target="_blank" rel="noopener" style="margin-left:auto;color:var(--accent)">Full Live Timing</a></div>
           <div class="livetiming" style="margin-top:9px">
-            <div class="timingcell"><span class="sub">Position</span><strong id="simbotPosition">—</strong></div><div class="timingcell"><span class="sub">Laps</span><strong id="simbotLaps">—</strong></div><div class="timingcell"><span class="sub">Last lap</span><strong id="simbotLast">—</strong></div><div class="timingcell"><span class="sub">Best lap</span><strong id="simbotBest">—</strong></div><div class="timingcell"><span class="sub">Gap ahead</span><strong id="simbotAhead">—</strong></div><div class="timingcell"><span class="sub">Gap behind</span><strong id="simbotBehind">—</strong></div><div class="timingcell"><span class="sub">Official remaining</span><strong id="simbotRemaining">—</strong></div><div class="timingcell" style="grid-column:span 2"><span class="sub">Session / track</span><strong id="simbotSession" style="font-size:13px">—</strong></div>
+            <div class="timingcell"><span class="sub">Position</span><strong id="simbotPosition">—</strong></div><div class="timingcell"><span class="sub">Laps</span><strong id="simbotLaps">—</strong></div><div class="timingcell"><span class="sub">Last lap</span><strong id="simbotLast">—</strong></div><div class="timingcell"><span class="sub">Best lap</span><strong id="simbotBest">—</strong></div><div class="timingcell"><span class="sub">Car / team ahead</span><strong class="timingentry" id="simbotAheadTeam">—</strong><span class="timinggap" id="simbotAhead">—</span></div><div class="timingcell"><span class="sub">Car / team behind</span><strong class="timingentry" id="simbotBehindTeam">—</strong><span class="timinggap" id="simbotBehind">—</span></div><div class="timingcell"><span class="sub">Official remaining</span><strong id="simbotRemaining">—</strong></div><div class="timingcell" style="grid-column:span 2"><span class="sub">Session / track</span><strong id="simbotSession" style="font-size:13px">—</strong></div>
           </div>
         </div>
       </section>
@@ -214,7 +215,8 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="sub">Choose the current DACC Motorsports.xlsx file. V5 discovers its sheets locally so the same app can be used for every round. No OneDrive credentials are used.</div>
           <div class="toolbar"><input id="prepWorkbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="readWorkbookBtn">Read workbook</button></div>
           <div class="sidegrid"><div class="field"><label>Stints / prep sheet</label><select id="prepSheetSelect"></select></div><div class="field"><label>Availability sheet</label><select id="availabilitySheetSelect"></select></div></div>
-          <div class="toolbar"><button id="refreshPrepBtn">Publish Prep Data</button><button id="importAvailabilityBtn">Import N / P / Y Availability</button></div>
+          <div class="toolbar"><button class="primary" id="importRosterBtn">Import Event Drivers</button><button id="importAvailabilityBtn">Import N / P / Y Availability</button><button id="refreshPrepBtn">Publish Prep Data</button></div>
+          <div class="prepmeta" id="rosterMeta">Event drivers remain unchanged until the detected roster is reviewed and confirmed.</div>
           <div class="prepmeta" id="prepMeta">No workbook prep published.</div>
         </div>
       </section>
@@ -287,7 +289,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.1 • round agnostic planning and SimBot timing • no database changes.</footer>
+  <footer>DACC Race Engineer V5.4 • schedule-to-prep workbook export • nearby team names in live timing • no database changes.</footer>
 </div>
 
 <script>
@@ -950,16 +952,55 @@ async function loadWorkbookChoices(){
   }catch(e){console.error(e);toast(`Workbook read failed: ${e.message}`,6000);return null}
 }
 function selectedSheetRows(selectId){const name=$(selectId).value,rows=workbookCache?.sheets?.[name];if(!rows)throw new Error('Read the workbook and select a sheet first');return {name,rows}}
+const DRIVER_ALIASES={mattsyko16:'matt',rsb1nko:'binko',alexedwardjohnson:'alex',alohy1:'andy',homesickalien77:'homesick',stu3000:'stu'};
+const DRIVER_LABELS={matt:'Matt',binko:'Binko',alex:'Alex',andy:'Andy',homesick:'Homesick',stu:'Stu'};
+const normaliseDriverName=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function canonicalDriverId(name){const key=normaliseDriverName(name);return DRIVER_ALIASES[key]||key}
 function matchingDriverId(workbookName){
-  const aliases={'mattsyko16':'matt','rsb1nko':'binko','alexedwardjohnson':'alex','alohy1':'andy','homesickalien77':'homesick','stu3000':'stu'};
-  const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-  const key=aliases[norm(workbookName)]||norm(workbookName);
-  return state.drivers.find(d=>norm(d.id)===key||norm(d.label)===key)?.id||null;
+  const key=canonicalDriverId(workbookName);
+  return state.drivers.find(d=>canonicalDriverId(d.id)===key||canonicalDriverId(d.label)===key)?.id||null;
+}
+function workbookDriverIdentity(rawName){
+  const raw=String(rawName||'').trim(),id=canonicalDriverId(raw);if(!id)return null;
+  const existing=state.drivers.find(d=>canonicalDriverId(d.id)===id||canonicalDriverId(d.label)===id);
+  return existing?{id:existing.id,label:existing.label,existing}:{id,label:DRIVER_LABELS[id]||raw.replace(/\s+/g,' '),existing:null};
 }
 function prepFromCells(c){
   const setup={bb:c.V,tc:c.W,tc2:c.X,abs:c.Y,frontDuct:c.T,rearDuct:c.U};
   const stint={fuel:c.Q,fuelPerLap:c.R,pitStrategy:c.P,serverTemp:c.L,airTemp:c.M,trackTemp:c.N,brakeInstruction:c.S,notes:c.AD,lf:c.Z,rf:c.AA,lr:c.AB,rr:c.AC};
   return {setup:Object.fromEntries(Object.entries(setup).filter(([,v])=>v!==undefined&&v!=='')),stint:Object.fromEntries(Object.entries(stint).filter(([,v])=>v!==undefined&&v!==''))};
+}
+function xmlEscape(value){return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
+function excelColumnName(index){let name='';for(let n=index+1;n;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name}
+function xlsxCell(ref,value,style=2){
+  if(typeof value==='number'&&Number.isFinite(value))return `<c r="${ref}" s="${style}"><v>${value}</v></c>`;
+  return `<c r="${ref}" s="${style}" t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`;
+}
+function xlsxRow(number,values,styles=[]){return `<row r="${number}">${values.map((value,index)=>xlsxCell(`${excelColumnName(index)}${number}`,value,styles[index]??2)).join('')}</row>`}
+function safeFilePart(value){return String(value||'Race').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,50)||'Race'}
+async function exportPrepWorkbook(){
+  if(!state.stints.length){toast('Generate or enter a stint schedule first.');return}
+  if(!window.JSZip){toast('Workbook export is unavailable.');return}
+  const rows=schedule(),headers=['Order','Stint','Driver','Target laps','Projected IRL start','Projected IRL finish','Projected server start','Projected server finish','Driving time','Preceding pit / changeover','Availability','Server temp','Air temp','Track temp','Load note','Pit strategy / load profile','Fuel (L)','Fuel / lap (L)','Brake change after','Front ducts','Rear ducts','BB','TC','TC2','ABS','LF PSI','RF PSI','LR PSI','RR PSI','Notes'];
+  const outputRows=rows.map((row,index)=>{
+    const stint=state.stints[index],prep=prepForStint(stint),preceding=index?Number(state.event.pitLossSec||0)+(state.stints[index-1].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0):0;
+    return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',prep.pitStrategy||'',prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
+  });
+  const endRow=6+outputRows.length,headerStyles=Array(30).fill(1),bodyStyles=Array(30).fill(2);bodyStyles[1]=3;
+  const sheetRows=[xlsxRow(1,['DACC_RACE_ENGINEER_PREP_V1'],[5]),xlsxRow(2,['DACC Race Engineer preparation workbook'],[4]),xlsxRow(3,[`Exported ${new Date().toLocaleString()} • Complete the yellow preparation cells, then select this file in Race Engineer and press Publish Prep Data.`],[5]),xlsxRow(6,headers,headerStyles),...outputRows.map((values,index)=>xlsxRow(index+7,values,bodyStyles))].join('');
+  const columns='<cols><col min="1" max="1" width="9" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="3" width="20" customWidth="1"/><col min="4" max="4" width="12" customWidth="1"/><col min="5" max="10" width="19" customWidth="1"/><col min="11" max="15" width="14" customWidth="1"/><col min="16" max="16" width="25" customWidth="1"/><col min="17" max="25" width="14" customWidth="1"/><col min="26" max="29" width="11" customWidth="1"/><col min="30" max="30" width="32" customWidth="1"/></cols>';
+  const prepSheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane xSplit="3" ySplit="6" topLeftCell="D7" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>${columns}<sheetData>${sheetRows}</sheetData><autoFilter ref="A6:AD${endRow}"/><dataValidations count="1"><dataValidation type="list" allowBlank="1" sqref="S7:S${endRow}"><formula1>"Y,N"</formula1></dataValidation></dataValidations></worksheet>`;
+  const instructionRows=[['DACC_RACE_ENGINEER_PREP_V1'],['Preparation workflow'],['1. The stint order, drivers, laps and projected times came from Race Engineer.'],['2. Complete fuel, pit strategy, brake change, setup, pressures and notes.'],['3. In Race Engineer choose this workbook and press Read workbook.'],['4. Select Stints & Prep, then press Publish Prep Data.'],['5. If the stint order changes later, export a fresh workbook before entering more preparation data.']];
+  const instructionsSheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="105" customWidth="1"/></cols><sheetData>${instructionRows.map((row,index)=>xlsxRow(index+1,row,[index===1?4:index===0?5:2])).join('')}</sheetData></worksheet>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="10"/><name val="Arial"/><color rgb="FF111827"/></font><font><b/><sz val="10"/><name val="Arial"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="15"/><name val="Arial"/><color rgb="FF111827"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF111827"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const zip=new window.JSZip();
+  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>');
+  zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>');
+  zip.file('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Stints &amp; Prep" sheetId="1" r:id="rId1"/><sheet name="Instructions" sheetId="2" r:id="rId2"/></sheets></workbook>');
+  zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  zip.file('xl/worksheets/sheet1.xml',prepSheet);zip.file('xl/worksheets/sheet2.xml',instructionsSheet);zip.file('xl/styles.xml',styles);
+  const created=new Date().toISOString();zip.file('docProps/core.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>DACC Race Engineer Preparation Workbook</dc:title><dc:creator>DACC Race Engineer</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created></cp:coreProperties>`);zip.file('docProps/app.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>DACC Race Engineer</Application></Properties>');
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`DACC_Prep_${safeFilePart(shared.code||state.event?.round||'Race')}_${new Date().toISOString().slice(0,10)}.xlsx`;document.body.appendChild(link);link.click();setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove()},500);toast(`${outputRows.length} stints exported for preparation.`)
 }
 async function refreshPrepData(){
   if(!canEdit()){toast('Race Control access required.');return}
@@ -967,7 +1008,7 @@ async function refreshPrepData(){
   $('#refreshPrepBtn').disabled=true;
   try{
     if(!workbookCache||workbookCache.fileName!==file.name)await loadWorkbookChoices();
-    const selected=selectedSheetRows('#prepSheetSelect'),rows=selected.rows.map(r=>{const match=r.cells.B?.match(/^Stint\s+(\d+)$/i);return match?{number:+match[1],cells:r.cells}:null}).filter(Boolean);if(!rows.length)throw new Error(`No numbered stints found on ${selected.name}`);
+    const selected=selectedSheetRows('#prepSheetSelect'),exportedPrep=selected.rows.some(r=>Object.values(r.cells).includes('DACC_RACE_ENGINEER_PREP_V1')),rows=selected.rows.map(r=>{const match=r.cells.B?.match(/^Stint\s+(\d+)$/i);return match?{number:+match[1],cells:r.cells}:null}).filter(Boolean);if(!rows.length)throw new Error(`No numbered stints found on ${selected.name}`);
     const byNumber=new Map(rows.map(r=>[r.number,r]));
     const baselines={};for(const row of rows){
       const id=matchingDriverId(row.cells.C);if(!id)continue;
@@ -975,7 +1016,7 @@ async function refreshPrepData(){
       for(const [k,v] of Object.entries(setup))baselines[id][k] ??= v;
     }
     let matched=0;for(const st of state.stints){
-      const row=byNumber.get(st.workbookStintNo);if(!row)continue;
+      const index=state.stints.indexOf(st),row=byNumber.get(exportedPrep?index+1:st.workbookStintNo);if(!row)continue;if(exportedPrep)st.workbookStintNo=index+1;
       const {setup,stint}=prepFromCells(row.cells),sourceDriver=matchingDriverId(row.cells.C);
       st.prepOverrides=stint;
       st.driverSetupOverride=sourceDriver===st.driver?Object.fromEntries(Object.entries(setup).filter(([k,v])=>baselines[st.driver]?.[k]!==v)):{};
@@ -988,20 +1029,53 @@ async function refreshPrepData(){
   finally{$('#refreshPrepBtn').disabled=!canEdit()}
 }
 
+function detectAvailabilityGrid(rows){
+  const stintHeader=rows.map(row=>{const ordered=Object.entries(row.cells).filter(([,v])=>Number.isInteger(Number(v))).sort((a,b)=>columnNumber(a[0])-columnNumber(b[0])),numbered=[];for(const entry of ordered){if(Number(entry[1])===numbered.length+1)numbered.push(entry);else if(numbered.length)break}return {row,numbered}}).sort((a,b)=>b.numbered.length-a.numbered.length)[0];
+  if(stintHeader?.numbered.length>=4){
+    const timeCols=stintHeader.numbered.sort((a,b)=>columnNumber(a[0])-columnNumber(b[0])).map(([col])=>{const above=rows.filter(r=>r.number<stintHeader.row.number).sort((a,b)=>b.number-a.number),source=above.find(r=>excelTimeToSec(r.cells[col])!==null);return source?{col,sec:excelTimeToSec(source.cells[col])}:null}).filter(Boolean);
+    if(timeCols.length>=4){const deltas=timeCols.slice(1).map((t,i)=>(t.sec-timeCols[i].sec+86400)%86400).filter(x=>x>=300&&x<=21600),blockSec=deltas.sort((a,b)=>a-b)[Math.floor(deltas.length/2)]||3600;return {headerRow:stintHeader.row.number,timeCols,firstCol:columnNumber(timeCols[0].col),blockSec,mode:'numbered stints'}}
+  }
+  let bestHeader=null,bestCount=0;for(const row of rows){const timed=Object.entries(row.cells).filter(([,v])=>excelTimeToSec(v)!==null);if(timed.length>bestCount){bestHeader=row;bestCount=timed.length}}
+  if(!bestHeader||bestCount<2)throw new Error('No availability time headings or numbered stint row were found.');
+  const timeCols=Object.entries(bestHeader.cells).map(([col,v])=>({col,sec:excelTimeToSec(v)})).filter(x=>x.sec!==null).sort((a,b)=>columnNumber(a.col)-columnNumber(b.col)),delta=(timeCols[1].sec-timeCols[0].sec+86400)%86400;
+  return {headerRow:bestHeader.number,timeCols,firstCol:columnNumber(timeCols[0].col),blockSec:Math.max(300,delta||900),mode:'time headings'};
+}
+function discoverEventDrivers(rows){
+  const grid=detectAvailabilityGrid(rows),found=[];
+  for(const row of rows.filter(r=>r.number>grid.headerRow)){
+    const timeCols=grid.timeCols.map(t=>t.col);
+    const statusCount=timeCols.filter(col=>['Y','P','N'].includes(String(row.cells[col]||'').trim().toUpperCase())).length;if(statusCount<2)continue;
+    const rawName=Object.entries(row.cells).filter(([col,value])=>columnNumber(col)<grid.firstCol&&String(value).trim()&&!['Y','P','N'].includes(String(value).trim().toUpperCase())).sort((a,b)=>columnNumber(a[0])-columnNumber(b[0]))[0]?.[1],identity=workbookDriverIdentity(rawName);
+    if(identity&&!found.some(d=>d.id===identity.id))found.push({...identity,rawName:String(rawName).trim()});
+  }
+  if(!found.length)throw new Error('No driver rows containing N, P or Y availability were found.');return found;
+}
+async function importEventDrivers(){
+  if(!canEdit()){toast('Race Control access required.');return}if(state.runtime.status!=='PRE-RACE'){toast('The event roster can only be imported before the race starts.');return}
+  const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose the current DACC Motorsports.xlsx file first.');return}
+  try{
+    if(!workbookCache||workbookCache.fileName!==file.name)await loadWorkbookChoices();const selected=selectedSheetRows('#availabilitySheetSelect'),detected=discoverEventDrivers(selected.rows);
+    const currentIds=new Set(state.drivers.map(d=>d.id)),detectedIds=new Set(detected.map(d=>d.id)),added=detected.filter(d=>!currentIds.has(d.id)).map(d=>d.label),removed=state.drivers.filter(d=>!detectedIds.has(d.id)).map(d=>d.label);
+    const lines=detected.map((d,i)=>`${i+1}. ${d.label}${d.rawName!==d.label?`  (${d.rawName})`:''}`),changes=[added.length?`Add: ${added.join(', ')}`:'No new drivers.',removed.length?`Remove from this event: ${removed.join(', ')}`:'No drivers removed.'];
+    const ok=await modalAsk({title:'Confirm event driver roster',text:`Detected on ${selected.name}:\n\n${lines.join('\n')}\n\n${changes.join('\n')}\n\nThis changes only this event roster. Driver preparation and historical incidents are retained.`,ok:'Import roster'});if(!ok)return;
+    const oldById=new Map(state.drivers.map(d=>[d.id,d]));state.drivers=detected.map(d=>oldById.get(d.id)||{id:d.id,label:d.label,availability:[]});
+    for(const d of state.drivers){state.planning.driverRules[d.id] ||= {mustStart:false,mustFinish:false,cannotStart:false,cannotFinish:false,maxDriveMinutes:null,maxStints:null,maxConsecutive:null,minRestMinutes:null,earliest:'',latest:''};state.planning.availability[d.id] ||= []}
+    if(!detectedIds.has(state.planning.starter))state.planning.starter='';if(!detectedIds.has(state.planning.finisher))state.planning.finisher='';
+    const fallback=state.drivers[0].id;let reassigned=0;for(const stint of state.stints)if(!detectedIds.has(stint.driver)){stint.driver=fallback;stint.driverSetupOverride={};reassigned++}
+    state.planning.rosterSource={name:file.name,sheet:selected.name,importedAt:new Date().toISOString(),count:state.drivers.length};addLog(`Event roster imported from ${selected.name}: ${state.drivers.map(d=>d.label).join(', ')}`,false);commitState();render();toast(`${state.drivers.length} event drivers imported.${reassigned?' Generate Schedule to replace reassigned draft rows.':''}`,6500);
+  }catch(e){console.error(e);toast(`Driver import failed: ${e.message}`,7000)}
+}
+
 function availabilityImportFromRows(rows){
-  let bestHeader=null,bestCount=0;
-  for(const row of rows){const timed=Object.entries(row.cells).filter(([,v])=>excelTimeToSec(v)!==null);if(timed.length>bestCount){bestHeader=row;bestCount=timed.length}}
-  if(!bestHeader||bestCount<2)throw new Error('No row with time headings was found. Use times such as 10:00, 10:15, 10:30.');
-  const timeCols=Object.entries(bestHeader.cells).map(([col,v])=>({col,sec:excelTimeToSec(v)})).filter(x=>x.sec!==null).sort((a,b)=>columnNumber(a.col)-columnNumber(b.col));
-  const blockSec=timeCols.length>1?Math.max(300,((timeCols[1].sec-timeCols[0].sec+86400)%86400)||900):900,availability={};let matched=0;
-  for(const row of rows.filter(r=>r.number>bestHeader.number)){
+  const grid=detectAvailabilityGrid(rows),timeCols=grid.timeCols,blockSec=grid.blockSec,availability={};let matched=0;
+  for(const row of rows.filter(r=>r.number>grid.headerRow)){
     const statuses=timeCols.map(t=>String(row.cells[t.col]||'').trim().toUpperCase());if(statuses.filter(v=>['Y','P','N'].includes(v)).length<2)continue;
-    const firstCol=columnNumber(timeCols[0].col);const driverText=Object.entries(row.cells).filter(([c,v])=>columnNumber(c)<firstCol&&String(v).trim()).sort((a,b)=>columnNumber(b[0])-columnNumber(a[0]))[0]?.[1];const id=matchingDriverId(driverText);if(!id)continue;
+    const driverText=Object.entries(row.cells).filter(([c,v])=>columnNumber(c)<grid.firstCol&&String(v).trim()&&!['Y','P','N'].includes(String(v).trim().toUpperCase())).sort((a,b)=>columnNumber(a[0])-columnNumber(b[0]))[0]?.[1];const id=matchingDriverId(driverText);if(!id)continue;
     const ranges=[];let active=null;
-    timeCols.forEach((t,i)=>{const status=['Y','P','N'].includes(statuses[i])?statuses[i]:'N',end=t.sec+blockSec;if(active&&active.status===status&&active.end===t.sec)active.end=end;else{active={start:t.sec,end,status};ranges.push(active)}});
+    timeCols.forEach((t,i)=>{const status=['Y','P','N'].includes(statuses[i])?statuses[i]:'N',end=t.sec+blockSec;if(active&&active.status===status&&((active.end%86400)+86400)%86400===t.sec)active.end=end;else{active={start:t.sec,end,status};ranges.push(active)}});
     availability[id]=ranges;matched++;
   }
-  if(!matched)throw new Error('No selected driver rows with N, P or Y cells were found.');return {availability,matched,blockSec};
+  if(!matched)throw new Error('No selected event driver rows with N, P or Y cells were found. Import Event Drivers first, then retry availability.');return {availability,matched,blockSec,mode:grid.mode};
 }
 async function importAvailability(){
   if(!canEdit()){toast('Race Control access required.');return}const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose the current DACC Motorsports.xlsx file first.');return}
@@ -1021,7 +1095,7 @@ function renderPlanningControls(){
   $('#driverPlanning').innerHTML=state.drivers.map(d=>{const r=planningRule(d.id);return `<div class="driverplan" data-driver-plan="${d.id}"><h3>${escapeHtml(d.label)}</h3><div class="availabilityline">${escapeHtml(availabilityText(d.id))}</div><div class="toolbar"><button data-add-window="${d.id}">+ Availability window</button><button data-clear-windows="${d.id}">Clear windows</button></div><div class="sidegrid" style="margin-top:7px"><label><input type="checkbox" data-rule="mustStart" ${r.mustStart?'checked':''}> Must start</label><label><input type="checkbox" data-rule="mustFinish" ${r.mustFinish?'checked':''}> Must finish</label><label><input type="checkbox" data-rule="cannotStart" ${r.cannotStart?'checked':''}> Cannot start</label><label><input type="checkbox" data-rule="cannotFinish" ${r.cannotFinish?'checked':''}> Cannot finish</label><div class="field"><label>Max drive min (blank = default)</label><input type="number" data-rule="maxDriveMinutes" value="${r.maxDriveMinutes||''}" placeholder="${p.maxDriveMinutes}"></div><div class="field"><label>Max stints (blank = no limit)</label><input type="number" data-rule="maxStints" value="${r.maxStints||''}" placeholder="No limit"></div><div class="field"><label>Max consecutive (blank = default)</label><input type="number" data-rule="maxConsecutive" value="${r.maxConsecutive||''}" placeholder="${p.maxConsecutive}"></div><div class="field"><label>Min rest min (blank = default)</label><input type="number" data-rule="minRestMinutes" value="${r.minRestMinutes??''}" placeholder="${p.minRestMinutes}"></div><div class="field"><label>Earliest</label><input type="time" data-rule="earliest" value="${r.earliest||''}"></div><div class="field"><label>Latest</label><input type="time" data-rule="latest" value="${r.latest||''}"></div></div></div>`}).join('');
   $('#driverPlanning').querySelectorAll('[data-driver-plan]').forEach(card=>card.querySelectorAll('[data-rule]').forEach(input=>{input.disabled=!edit;input.onchange=()=>{const rule=planningRule(card.dataset.driverPlan),key=input.dataset.rule;rule[key]=input.type==='checkbox'?input.checked:(input.type==='number'?+input.value:input.value);commitState();validateAndRenderPlan()}}));
   $('#driverPlanning').querySelectorAll('[data-add-window]').forEach(b=>{b.disabled=!edit;b.onclick=()=>addAvailabilityWindow(b.dataset.addWindow)});$('#driverPlanning').querySelectorAll('[data-clear-windows]').forEach(b=>{b.disabled=!edit;b.onclick=()=>{state.planning.availability[b.dataset.clearWindows]=[];commitState();render()}});
-  for(const id of ['planTargetMin','planMaxDriveMin','planMinRestMin','planMinStintMin','planMaxConsecutive','planAllowDouble','planStarter','planFinisher'])$('#'+id).disabled=!edit;for(const id of ['generateScheduleBtn','regenerateScheduleBtn','replanFutureBtn','importAvailabilityBtn'])$('#'+id).disabled=!edit;
+  for(const id of ['planTargetMin','planMaxDriveMin','planMinRestMin','planMinStintMin','planMaxConsecutive','planAllowDouble','planStarter','planFinisher'])$('#'+id).disabled=!edit;for(const id of ['generateScheduleBtn','regenerateScheduleBtn','replanFutureBtn','importAvailabilityBtn'])$('#'+id).disabled=!edit;$('#importRosterBtn').disabled=!edit||state.runtime.status!=='PRE-RACE';$('#exportPrepBtn').disabled=!state.stints.length;
 }
 function validateSchedulePlan(){
   const rows=schedule(),errors=[],warnings=[],p=state.planning,stats={};state.drivers.forEach(d=>stats[d.id]={stints:0,laps:0,drive:0,longest:0,minRest:null,lastFinish:null,block:0,lastIndex:-2,consecutive:0});
@@ -1125,6 +1199,7 @@ function render(){
   renderNextPrep(state.stints[cur+1]);
   const source=state.prep?.source;
   $('#prepMeta').textContent=source?`Published ${source.name} • ${source.sheet} • ${source.matched} stints • ${new Date(source.refreshedAt).toLocaleString()}`:'No workbook prep published.';
+  const rosterSource=state.planning?.rosterSource;$('#rosterMeta').textContent=rosterSource?`Event roster: ${state.drivers.map(d=>d.label).join(', ')} • ${rosterSource.sheet} • ${new Date(rosterSource.importedAt).toLocaleString()}`:`Current event drivers: ${state.drivers.map(d=>d.label).join(', ')}. Import remains review-only until confirmed.`;
   $('#refreshPrepBtn').disabled=!edit;
 
   const actualSelect=$('#actualStartStintSelect'),selectedActual=actualSelect.dataset.ready==='1'?Number(actualSelect.value):cur;
@@ -1876,12 +1951,14 @@ $('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({ti
 $('#brakePlanBtn').onclick=configureBrakePlan;
 $('#notifyBtn').onclick=enableNotifications;
 $('#readWorkbookBtn').onclick=loadWorkbookChoices;
+$('#importRosterBtn').onclick=importEventDrivers;
 $('#refreshPrepBtn').onclick=refreshPrepData;
 $('#importAvailabilityBtn').onclick=importAvailability;
 $('#generateScheduleBtn').onclick=()=>generateAutomaticSchedule(false);
 $('#regenerateScheduleBtn').onclick=()=>generateAutomaticSchedule(state.runtime.status!=='PRE-RACE');
 $('#replanFutureBtn').onclick=()=>generateAutomaticSchedule(true);
 $('#validateScheduleBtn').onclick=()=>{readPlanningInputs();commitState();validateAndRenderPlan();toast('Schedule validation updated.')};
+$('#exportPrepBtn').onclick=exportPrepWorkbook;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
 $('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==effectiveCurrentIndex();};
 $('#quickActualStartBtn').onclick=async()=>{if(await unlockControlWithPrompt())await editActualStart(Number($('#actualStartStintSelect').value));};
@@ -1974,8 +2051,9 @@ function updateMobileStatus(){
 function simbotStatus(now=Date.now()){const age=simbot.lastPayloadAt?now-simbot.lastPayloadAt:Infinity;if(simbot.connected&&age<=15000)return 'LIVE';if(simbot.lastPayloadAt&&age<=60000)return 'STALE';return 'OFFLINE'}
 function simbotTime(value){if(value===null||value===undefined||value==='')return '—';if(typeof value==='string'&&value.includes(':'))return value;const ms=Number(value);if(!Number.isFinite(ms))return '—';const total=Math.max(0,Math.round(ms/1000));return `${Math.floor(total/60)}:${pad(total%60)}`}
 function simbotGap(a,b){if(!a||!b)return '—';const lapDiff=Math.abs(Number(a.lapCount||0)-Number(b.lapCount||0));if(lapDiff)return `${lapDiff} lap${lapDiff===1?'':'s'}`;const gap=Math.abs(Number(a.totalRaceTime)-Number(b.totalRaceTime));return Number.isFinite(gap)?simbotTime(gap):'—'}
+function simbotEntryName(entry){if(!entry)return '—';const team=entry.teamName||entry.team||entry.entryName||entry.teamNames||entry.driverNames;return String(team||`Car ${entry.raceNumber||'—'}`).trim()||`Car ${entry.raceNumber||'—'}`}
 function renderSimBot(){
-  try{const status=simbotStatus(),statusEl=$('#simbotStatus');if(!statusEl)return;statusEl.textContent=status;statusEl.className=`timingstatus timing-${status.toLowerCase()}`;const payload=simbot.payload||{},drivers=Array.isArray(payload.driversArray)?payload.driversArray.slice():[],ordered=drivers.sort((a,b)=>Number(b.numSectors||0)-Number(a.numSectors||0)||Number(a.totalRaceTime||Infinity)-Number(b.totalRaceTime||Infinity)),idx=ordered.findIndex(x=>String(x.raceNumber)===SIMBOT_CAR),car=idx>=0?ordered[idx]:null,session=payload.sessionData||{};$('#simbotPosition').textContent=car?String(idx+1):'—';$('#simbotLaps').textContent=car&&Number.isFinite(+car.lapCount)?String(car.lapCount):'—';$('#simbotLast').textContent=car?simbotTime(car.lastLap?.lapTime??car.lastLap?.lapTimeMs):'—';$('#simbotBest').textContent=car?simbotTime(car.bestLap?.lapTime??car.bestLap?.lapTimeMs):'—';$('#simbotAhead').textContent=car&&idx>0?simbotGap(car,ordered[idx-1]):car&&idx===0?'LEADER':'—';$('#simbotBehind').textContent=car&&idx<ordered.length-1?simbotGap(car,ordered[idx+1]):'—';const rawRemaining=session.timeRemaining,remaining=Number(rawRemaining);$('#simbotRemaining').textContent=typeof rawRemaining==='string'&&rawRemaining.includes(':')?rawRemaining:(Number.isFinite(remaining)?fmtSec(Math.max(0,remaining*60)):'—');$('#simbotSession').textContent=[session.trackName,session.sessionType].filter(Boolean).join(' • ')||'—';$('#simbotUpdated').textContent=simbot.lastPayloadAt?`${status==='LIVE'?'Updated':'Last update'} ${Math.floor((Date.now()-simbot.lastPayloadAt)/1000)}s ago`:(simbot.error||'Waiting for SimBot')}
+  try{const status=simbotStatus(),statusEl=$('#simbotStatus');if(!statusEl)return;statusEl.textContent=status;statusEl.className=`timingstatus timing-${status.toLowerCase()}`;const payload=simbot.payload||{},drivers=Array.isArray(payload.driversArray)?payload.driversArray.slice():[],ordered=drivers.sort((a,b)=>Number(b.numSectors||0)-Number(a.numSectors||0)||Number(a.totalRaceTime||Infinity)-Number(b.totalRaceTime||Infinity)),idx=ordered.findIndex(x=>String(x.raceNumber)===SIMBOT_CAR),car=idx>=0?ordered[idx]:null,ahead=car&&idx>0?ordered[idx-1]:null,behind=car&&idx<ordered.length-1?ordered[idx+1]:null,session=payload.sessionData||{};$('#simbotPosition').textContent=car?String(idx+1):'—';$('#simbotLaps').textContent=car&&Number.isFinite(+car.lapCount)?String(car.lapCount):'—';$('#simbotLast').textContent=car?simbotTime(car.lastLap?.lapTime??car.lastLap?.lapTimeMs):'—';$('#simbotBest').textContent=car?simbotTime(car.bestLap?.lapTime??car.bestLap?.lapTimeMs):'—';$('#simbotAheadTeam').textContent=ahead?simbotEntryName(ahead):car&&idx===0?'Race leader':'—';$('#simbotAhead').textContent=ahead?simbotGap(car,ahead):car&&idx===0?'LEADER':'—';$('#simbotBehindTeam').textContent=behind?simbotEntryName(behind):'—';$('#simbotBehind').textContent=behind?simbotGap(car,behind):'—';const rawRemaining=session.timeRemaining,remaining=Number(rawRemaining);$('#simbotRemaining').textContent=typeof rawRemaining==='string'&&rawRemaining.includes(':')?rawRemaining:(Number.isFinite(remaining)?fmtSec(Math.max(0,remaining*60)):'—');$('#simbotSession').textContent=[session.trackName,session.sessionType].filter(Boolean).join(' • ')||'—';$('#simbotUpdated').textContent=simbot.lastPayloadAt?`${status==='LIVE'?'Updated':'Last update'} ${Math.floor((Date.now()-simbot.lastPayloadAt)/1000)}s ago`:(simbot.error||'Waiting for SimBot')}
   catch(err){console.warn('SimBot display ignored',err)}
 }
 function initSimBot(){
