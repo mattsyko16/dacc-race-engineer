@@ -11,10 +11,11 @@
   --accent:#7ea7ff;--accent2:#a880ff;--shadow:0 8px 28px rgba(0,0,0,.28)
 }
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%;touch-action:manipulation}button,input,select,textarea,label{-webkit-tap-highlight-color:transparent;touch-action:manipulation} body{margin:0;background:linear-gradient(180deg,#090c11,#10151e);
-font:14px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}
+ font:14px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text);overflow-x:hidden}
 button,input,select,textarea{font:inherit}
 .shell{max-width:1900px;margin:0 auto;padding:14px}
 .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.topbar>div:last-child{flex-wrap:wrap;max-width:100%}
 .brand{display:flex;align-items:center;gap:10px}.logo{width:40px;height:40px;border-radius:10px;
 background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:900;color:#08101d}
 h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
@@ -66,15 +67,17 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 .brakewarn{margin-top:8px;padding:8px 10px;border:1px solid #f8c555;border-radius:9px;background:#3a2d0b;color:#ffe3a3;font-weight:800;letter-spacing:.2px}
 .brakeflag{font-weight:800;color:#f8c555}
 .incidentlog{display:flex;flex-direction:column;gap:8px}.incidentrow{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}.incidentrow>div{min-width:0}.incidenttime{flex:0 1 110px;color:var(--muted);font-size:12px}.incidentrow>div:nth-child(2),.incidentrow>div:nth-child(3){flex:0 1 58px}.incidentdriver{flex:1 1 100px;font-weight:700}.incidentrow>div:last-child{flex:0 0 auto;margin-left:auto}.incidenttext{order:10;flex:1 0 100%;width:100%;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;line-height:1.45;padding:7px 9px;border-radius:7px;background:#101722}@media(max-width:760px){.incidentrow{gap:7px 11px}.incidenttime{font-size:11px}.incidentdriver{flex-basis:80px}.incidentrow>div:last-child{margin-left:0}.incidenttext{font-size:13px}}.finish-green{border-color:var(--good)!important;background:#10271f!important}.finish-green .value{color:#6ee7b7}.finish-yellow{border-color:var(--warn)!important;background:#302815!important}.finish-yellow .value{color:#ffdb7c}.finish-red{border-color:var(--bad)!important;background:#321b1b!important}.finish-red .value{color:#ff9b9b}.finishmargin{font-size:11px;margin-top:4px;color:var(--muted)}
+.planning{margin-top:12px}.planning summary{cursor:pointer;padding:13px 14px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}.planning summary::marker{color:var(--accent)}.planninggrid{display:grid;grid-template-columns:repeat(4,minmax(125px,1fr));gap:8px}.planninggrid .field input,.planninggrid .field select{width:100%}.planstatus{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:9px 0}.statuspill{border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-weight:800}.status-valid{color:#6ee7b7;border-color:var(--good)}.status-warnings{color:#ffdb7c;border-color:var(--warn)}.status-invalid{color:#ff9b9b;border-color:var(--bad)}.driverplanning{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.driverplan{border:1px solid var(--line);border-radius:9px;background:#101722;padding:9px}.driverplan h3{font-size:14px;margin:0 0 7px}.availabilityline{font-size:12px;color:#cbd5e5;overflow-wrap:anywhere}.planmessages{margin-top:8px;font-size:12px;white-space:pre-wrap}.livetiming{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.timingcell{background:#101722;border:1px solid var(--line);border-radius:8px;padding:7px}.timingcell .sub{font-size:10px}.timingcell strong{display:block;font-size:16px;margin-top:2px}.timingstatus{font-weight:900}.timing-live{color:var(--good)}.timing-stale{color:var(--warn)}.timing-offline{color:var(--bad)}.provisional{color:var(--warn);font-weight:800}.lockbox{width:18px;height:18px}@media(max-width:760px){.planninggrid,.driverplanning{grid-template-columns:1fr 1fr}.livetiming{grid-template-columns:repeat(2,1fr)}.planning .toolbar button{flex:1 1 140px}}@media(max-width:460px){.planninggrid,.driverplanning{grid-template-columns:1fr}}
 
 </style>
 </head>
 <body>
 <script src="./config.js"></script>
+<script src="./socket.io.js"></script>
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V4.7.12</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.1</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -122,7 +125,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 
           <div class="tablewrap">
             <table id="stintTable">
-              <thead><tr><th>#</th><th>Driver</th><th>Laps</th><th>Brakes after</th><th>IRL Start</th><th>IRL Finish</th><th>Server Start</th><th>Server Finish</th><th>Remaining</th><th>Availability</th><th>Actual timing</th><th></th></tr></thead>
+              <thead><tr><th>#</th><th>Driver</th><th>Laps</th><th>Brakes after</th><th>Lock</th><th>IRL Start</th><th>IRL Finish</th><th>Server Start</th><th>Server Finish</th><th>Remaining</th><th>Availability</th><th>Actual timing</th><th></th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -131,11 +134,48 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 
       <section class="card" style="margin-top:12px">
         <h2>Driver Totals</h2>
-        <div class="cardbody totalstable"><table><thead><tr><th>Driver</th><th>Laps</th><th>Driving</th><th>Stints</th></tr></thead><tbody id="totalsBody"></tbody></table></div>
+        <div class="cardbody totalstable tablewrap"><table><thead><tr><th>Driver</th><th>Laps</th><th>Driving</th><th>Stints</th><th>Longest block</th><th>Shortest rest</th><th>First</th><th>Final</th></tr></thead><tbody id="totalsBody"></tbody></table></div>
       </section>
+
+      <details class="card planning" id="planningPanel">
+        <summary>Planning / Availability</summary>
+        <div class="cardbody">
+          <div class="sub">Build a race schedule for the selected drivers. Y is confirmed, P is possible and requires confirmation, N or blank is unavailable.</div>
+          <div class="planninggrid" style="margin-top:10px">
+            <div class="field"><label>Target stint (min)</label><input id="planTargetMin" type="number" min="20" step="5"></div>
+            <div class="field"><label>Maximum drive / driver (min)</label><input id="planMaxDriveMin" type="number" min="30" step="15"></div>
+            <div class="field"><label>Minimum rest (min)</label><input id="planMinRestMin" type="number" min="0" step="15"></div>
+            <div class="field"><label>Minimum useful stint (min)</label><input id="planMinStintMin" type="number" min="10" step="5"></div>
+            <div class="field"><label>Maximum consecutive stints</label><input id="planMaxConsecutive" type="number" min="1" step="1"></div>
+            <div class="field"><label>Double stints</label><select id="planAllowDouble"><option value="yes">Allowed</option><option value="no">Not allowed</option></select></div>
+            <div class="field"><label>Starter</label><select id="planStarter"></select></div>
+            <div class="field"><label>Finisher</label><select id="planFinisher"></select></div>
+          </div>
+          <div class="toolbar">
+            <button class="primary" id="generateScheduleBtn">Generate Schedule</button>
+            <button id="regenerateScheduleBtn">Regenerate</button>
+            <button id="replanFutureBtn">Replan Future Stints</button>
+            <button id="validateScheduleBtn">Validate</button>
+          </div>
+          <div class="planstatus"><span id="planStatus" class="statuspill">Not checked</span><span class="sub" id="planSource">Availability not imported.</span></div>
+          <div id="planMessages" class="planmessages"></div>
+          <div id="driverPlanning" class="driverplanning"></div>
+          <div class="sub" style="margin-top:10px">Lock individual stints in the main schedule before regenerating. Completed and current stints are always preserved during a live race.</div>
+        </div>
+      </details>
     </main>
 
     <aside>
+
+      <section class="card">
+        <h2>Live Timing</h2>
+        <div class="cardbody">
+          <div class="syncrow"><span id="simbotStatus" class="timingstatus timing-offline">OFFLINE</span><span class="sub" id="simbotUpdated">Waiting for SimBot</span><a id="simbotFullLink" href="https://web.simbot.app/live-laps?server=SIM%2520Racing%2520Club%2520-%2520The%2520Proper%2520One%2520Server%25201&amp;sessionType=live&amp;dataType=race" target="_blank" rel="noopener" style="margin-left:auto;color:var(--accent)">Full Live Timing</a></div>
+          <div class="livetiming" style="margin-top:9px">
+            <div class="timingcell"><span class="sub">Position</span><strong id="simbotPosition">—</strong></div><div class="timingcell"><span class="sub">Laps</span><strong id="simbotLaps">—</strong></div><div class="timingcell"><span class="sub">Last lap</span><strong id="simbotLast">—</strong></div><div class="timingcell"><span class="sub">Best lap</span><strong id="simbotBest">—</strong></div><div class="timingcell"><span class="sub">Gap ahead</span><strong id="simbotAhead">—</strong></div><div class="timingcell"><span class="sub">Gap behind</span><strong id="simbotBehind">—</strong></div><div class="timingcell"><span class="sub">Official remaining</span><strong id="simbotRemaining">—</strong></div><div class="timingcell" style="grid-column:span 2"><span class="sub">Session / track</span><strong id="simbotSession" style="font-size:13px">—</strong></div>
+          </div>
+        </div>
+      </section>
 
       <section class="card">
         <h2>Shared Race Session</h2>
@@ -169,10 +209,12 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
 
       <section class="card" style="margin-top:12px">
-        <h2>Prep from master Excel</h2>
+        <h2>Race Pack / Excel</h2>
         <div class="cardbody">
-          <div class="sub">Race Control: choose the current DACC Motorsports.xlsx file. Round 9 Stints 48 is read locally; Refresh Prep Data publishes the result to this shared race. No OneDrive credentials are used.</div>
-          <div class="toolbar"><input id="prepWorkbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="refreshPrepBtn">Refresh Prep Data</button></div>
+          <div class="sub">Choose the current DACC Motorsports.xlsx file. V5 discovers its sheets locally so the same app can be used for every round. No OneDrive credentials are used.</div>
+          <div class="toolbar"><input id="prepWorkbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="readWorkbookBtn">Read workbook</button></div>
+          <div class="sidegrid"><div class="field"><label>Stints / prep sheet</label><select id="prepSheetSelect"></select></div><div class="field"><label>Availability sheet</label><select id="availabilitySheetSelect"></select></div></div>
+          <div class="toolbar"><button id="refreshPrepBtn">Publish Prep Data</button><button id="importAvailabilityBtn">Import N / P / Y Availability</button></div>
           <div class="prepmeta" id="prepMeta">No workbook prep published.</div>
         </div>
       </section>
@@ -245,7 +287,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V4.7.12 • actual start and finish correction • no database changes.</footer>
+  <footer>DACC Race Engineer V5.1 • round agnostic planning and SimBot timing • no database changes.</footer>
 </div>
 
 <script>
@@ -275,6 +317,10 @@ const secToClock=s=>{s=((s%86400)+86400)%86400;return `${pad(Math.floor(s/3600))
 const deepClone=o=>JSON.parse(JSON.stringify(o));
 const BRAKE_CHANGE_EXTRA_SEC=45;
 const cfg=window.DACC_CONFIG||{};
+const SIMBOT_PAGE_URL=cfg.simbotUrl||'https://web.simbot.app/live-laps?server=SIM%2520Racing%2520Club%2520-%2520The%2520Proper%2520One%2520Server%25201&sessionType=live&dataType=race';
+const SIMBOT_SERVER=cfg.simbotServer||'SIM Racing Club - The Proper One Server 1';
+const SIMBOT_CAR=String(cfg.simbotCarNumber||48);
+const simbot={socket:null,connected:false,lastPayloadAt:0,payload:null,error:null};
 
 let seed = await fetch('./seed.json').then(r=>r.json());
 let state = JSON.parse(localStorage.getItem('dacc-race-engineer')||'null') || deepClone(seed);
@@ -330,7 +376,14 @@ function migrateRuntime(){
   if(!Array.isArray(r.incidents)) r.incidents=[];
   state.prep ||= {driverBaselines:{},source:null};
   state.prep.driverBaselines ||= {};
-  state.stints.forEach((s,i)=>{ if(typeof s.brakeChangeAfter!=='boolean') s.brakeChangeAfter=false; if(!Number.isInteger(s.workbookStintNo)) s.workbookStintNo=i+1; s.prepOverrides ||= {}; });
+  state.planning ||= {};
+  const p=state.planning;
+  p.targetStintMinutes=Number(p.targetStintMinutes)||Math.max(30,Math.round(((state.stints?.[0]?.laps||52)*(state.event?.avgLapSec||90.8))/300)*5);
+  p.maxDriveMinutes=Number(p.maxDriveMinutes)||Math.max(180,Math.ceil(((state.event?.raceHours||24)*60/Math.max(1,state.drivers?.length||1))*1.15/15)*15);p.minRestMinutes=Number.isFinite(+p.minRestMinutes)?+p.minRestMinutes:90;
+  p.minUsefulStintMinutes=Number(p.minUsefulStintMinutes)||45;p.maxConsecutive=Number(p.maxConsecutive)||2;
+  if(typeof p.allowDouble!=='boolean')p.allowDouble=true;p.starter ||= '';p.finisher ||= '';p.availability ||= {};p.driverRules ||= {};p.source ||= null;
+  state.drivers.forEach(d=>{p.driverRules[d.id] ||= {mustStart:false,mustFinish:false,cannotStart:false,cannotFinish:false,maxDriveMinutes:null,maxStints:null,maxConsecutive:null,minRestMinutes:null,earliest:'',latest:''};if(!p.availability[d.id]&&d.availability?.length)p.availability[d.id]=d.availability.map(([a,b])=>({start:timeToSec(a),end:timeToSec(b),status:'Y'}));});
+  state.stints.forEach((s,i)=>{ if(typeof s.brakeChangeAfter!=='boolean') s.brakeChangeAfter=false;if(typeof s.locked!=='boolean')s.locked=false; if(!Number.isInteger(s.workbookStintNo)) s.workbookStintNo=i+1; s.prepOverrides ||= {}; });
   // PRE-RACE must always start from stint 1. Old test state from a previous build
   // should never make the planner look as though the race is already on stint 2+.
   if(r.status==='PRE-RACE'){
@@ -470,13 +523,23 @@ function elapsedRaceSec(){
 function actualRaceStartClockSec(){
   return Number.isFinite(state.runtime.startClockSec) ? state.runtime.startClockSec : timeToSec(state.event.irlStart);
 }
-function availabilityContains(driverId, startSec, finishSec){
-  const d=driversById()[driverId]; if(!d?.availability?.length) return true;
+function availabilityStatus(driverId,startSec,finishSec){
+  const imported=state.planning?.availability?.[driverId];
+  if(imported?.length){
+    const sample=[];for(let t=startSec;t<=finishSec;t+=900)sample.push(t);sample.push(finishSec);
+    let provisional=false;
+    for(const raw of sample){const t=((raw%86400)+86400)%86400;const hit=imported.find(w=>{const a=((+w.start%86400)+86400)%86400,b=((+w.end%86400)+86400)%86400;return a===b?true:(b>a?(t>=a&&t<b):(t>=a||t<b))});if(!hit||hit.status==='N')return 'N';if(hit.status==='P')provisional=true;}
+    return provisional?'P':'Y';
+  }
+  const d=driversById()[driverId]; if(!d?.availability?.length) return 'Y';
   const within=(t,a,b)=>{ if(a===b) return true; if(b>a) return t>=a&&t<=b; return t>=a||t<=b; };
   const s=((startSec%86400)+86400)%86400, f=((finishSec%86400)+86400)%86400, mid=((startSec+(finishSec-startSec)/2)%86400+86400)%86400;
   return d.availability.some(([aa,bb])=>{
     const a=timeToSec(aa),b=timeToSec(bb); return within(s,a,b)&&within(mid,a,b)&&within(f,a,b)
-  })
+  })?'Y':'N'
+}
+function availabilityContains(driverId,startSec,finishSec){
+  return availabilityStatus(driverId,startSec,finishSec)!=='N';
 }
 function schedule(){
   const e=state.event, lap=e.avgLapSec, pit=e.pitLossSec, live=state.runtime.status!=='PRE-RACE';
@@ -511,7 +574,7 @@ function schedule(){
         : Math.max(0,e.raceHours*3600-startElapsed);
     rows.push({...st,i,start:irlStart,finish:irlFinish,serverStart,serverFinish,startElapsed,finishElapsed,
       remaining,drive,plannedDrive,
-      avail:availabilityContains(st.driver,irlStart,irlFinish),
+      avail:availabilityContains(st.driver,irlStart,irlFinish),availabilityStatus:availabilityStatus(st.driver,irlStart,irlFinish),
       isActualStart:Number.isFinite(actual.startElapsed),isActualFinish:Number.isFinite(actual.finishElapsed)});
   });
   return rows
@@ -861,36 +924,32 @@ function xmlChildren(node,name){return Array.from(node?.children||[]).filter(x=>
 function xmlFirst(node,name){return xmlChildren(node,name)[0]}
 function readXml(text){const doc=new DOMParser().parseFromString(text,'application/xml');if(doc.querySelector('parsererror'))throw new Error('Invalid Excel XML');return doc}
 function cellColumn(ref){return String(ref||'').match(/^[A-Z]+/)?.[0]||''}
-async function readRound9Prep(file){
+let workbookCache=null;
+function columnNumber(col){let n=0;for(const c of String(col))n=n*26+c.charCodeAt(0)-64;return n}
+function excelTimeToSec(value){const s=String(value??'').trim();if(/^\d{1,2}:\d{2}(?::\d{2})?$/.test(s))return parseClock(s);const n=Number(s);if(Number.isFinite(n)&&n>=0&&n<1)return Math.round(n*86400);return null}
+async function readWorkbook(file){
   if(!window.JSZip)throw new Error('Workbook reader is unavailable');
   const zip=await window.JSZip.loadAsync(await file.arrayBuffer());
   const xml=async path=>{const part=zip.file(path);if(!part)throw new Error(`Workbook part missing: ${path}`);return readXml(await part.async('string'))};
-  const workbook=await xml('xl/workbook.xml'),rels=await xml('xl/_rels/workbook.xml.rels');
-  const sheet=Array.from(workbook.getElementsByTagName('*')).find(x=>x.localName==='sheet'&&x.getAttribute('name')==='Round 9 Stints 48');
-  if(!sheet)throw new Error('Round 9 Stints 48 sheet not found');
-  const rid=sheet.getAttribute('r:id')||sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
-  const rel=Array.from(rels.getElementsByTagName('*')).find(x=>x.localName==='Relationship'&&x.getAttribute('Id')===rid);
-  if(!rel)throw new Error('Worksheet relationship not found');
-  const target=rel.getAttribute('Target');
-  const path=target.startsWith('/')?target.slice(1):'xl/'+target.replace(/^\.\//,'');
-  const strings=[];
-  if(zip.file('xl/sharedStrings.xml')){
-    const ss=await xml('xl/sharedStrings.xml');
-    for(const si of Array.from(ss.getElementsByTagName('*')).filter(x=>x.localName==='si')) strings.push(Array.from(si.getElementsByTagName('*')).filter(x=>x.localName==='t').map(x=>x.textContent||'').join(''));
+  const workbook=await xml('xl/workbook.xml'),rels=await xml('xl/_rels/workbook.xml.rels'),strings=[];
+  if(zip.file('xl/sharedStrings.xml')){const ss=await xml('xl/sharedStrings.xml');for(const si of Array.from(ss.getElementsByTagName('*')).filter(x=>x.localName==='si'))strings.push(Array.from(si.getElementsByTagName('*')).filter(x=>x.localName==='t').map(x=>x.textContent||'').join(''));}
+  const sheets={};
+  for(const sheet of Array.from(workbook.getElementsByTagName('*')).filter(x=>x.localName==='sheet')){
+    const name=sheet.getAttribute('name'),rid=sheet.getAttribute('r:id')||sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+    const rel=Array.from(rels.getElementsByTagName('*')).find(x=>x.localName==='Relationship'&&x.getAttribute('Id')===rid);if(!rel)continue;
+    const target=rel.getAttribute('Target'),path=target.startsWith('/')?target.slice(1):'xl/'+target.replace(/^\.\//,'');const doc=await xml(path),rows=[];
+    for(const row of Array.from(doc.getElementsByTagName('*')).filter(x=>x.localName==='row')){const cells={};for(const c of xmlChildren(row,'c')){const v=xmlFirst(c,'v'),inline=xmlFirst(c,'is');let value=v?.textContent??(inline?Array.from(inline.getElementsByTagName('*')).filter(x=>x.localName==='t').map(x=>x.textContent||'').join(''):'');if(c.getAttribute('t')==='s')value=strings[Number(value)]||'';cells[cellColumn(c.getAttribute('r'))]=String(value).trim();}rows.push({number:Number(row.getAttribute('r'))||rows.length+1,cells});}
+    sheets[name]=rows;
   }
-  const doc=await xml(path),rows=[];
-  for(const row of Array.from(doc.getElementsByTagName('*')).filter(x=>x.localName==='row')){
-    const cells={};for(const c of xmlChildren(row,'c')){
-      const v=xmlFirst(c,'v'),inline=xmlFirst(c,'is');let value=v?.textContent??(inline?Array.from(inline.getElementsByTagName('*')).filter(x=>x.localName==='t').map(x=>x.textContent||'').join(''):'');
-      if(c.getAttribute('t')==='s')value=strings[Number(value)]||'';
-      cells[cellColumn(c.getAttribute('r'))]=String(value).trim();
-    }
-    const match=cells.B?.match(/^Stint\s+(\d+)$/i);
-    if(match)rows.push({number:+match[1],cells});
-  }
-  if(!rows.length)throw new Error('No numbered stints found on Round 9 Stints 48');
-  return rows;
+  workbookCache={fileName:file.name,sheets};return workbookCache;
 }
+async function loadWorkbookChoices(){
+  const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose DACC Motorsports.xlsx first.');return null}
+  try{const book=await readWorkbook(file),names=Object.keys(book.sheets),options=names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');$('#prepSheetSelect').innerHTML=options;$('#availabilitySheetSelect').innerHTML=options;
+    const prep=names.find(n=>/stints?\s*48/i.test(n))||names.find(n=>/stint/i.test(n))||names[0],avail=names.find(n=>/avail|driver|schedule|stint/i.test(n))||names[0];$('#prepSheetSelect').value=prep;$('#availabilitySheetSelect').value=avail;toast(`${names.length} workbook sheets found.`);return book;
+  }catch(e){console.error(e);toast(`Workbook read failed: ${e.message}`,6000);return null}
+}
+function selectedSheetRows(selectId){const name=$(selectId).value,rows=workbookCache?.sheets?.[name];if(!rows)throw new Error('Read the workbook and select a sheet first');return {name,rows}}
 function matchingDriverId(workbookName){
   const aliases={'mattsyko16':'matt','rsb1nko':'binko','alexedwardjohnson':'alex','alohy1':'andy','homesickalien77':'homesick','stu3000':'stu'};
   const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -907,7 +966,9 @@ async function refreshPrepData(){
   const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose the current DACC Motorsports.xlsx file first.');return}
   $('#refreshPrepBtn').disabled=true;
   try{
-    const rows=await readRound9Prep(file),byNumber=new Map(rows.map(r=>[r.number,r]));
+    if(!workbookCache||workbookCache.fileName!==file.name)await loadWorkbookChoices();
+    const selected=selectedSheetRows('#prepSheetSelect'),rows=selected.rows.map(r=>{const match=r.cells.B?.match(/^Stint\s+(\d+)$/i);return match?{number:+match[1],cells:r.cells}:null}).filter(Boolean);if(!rows.length)throw new Error(`No numbered stints found on ${selected.name}`);
+    const byNumber=new Map(rows.map(r=>[r.number,r]));
     const baselines={};for(const row of rows){
       const id=matchingDriverId(row.cells.C);if(!id)continue;
       const {setup}=prepFromCells(row.cells);baselines[id] ||= {};
@@ -920,11 +981,66 @@ async function refreshPrepData(){
       st.driverSetupOverride=sourceDriver===st.driver?Object.fromEntries(Object.entries(setup).filter(([k,v])=>baselines[st.driver]?.[k]!==v)):{};
       matched++;
     }
-    state.prep={driverBaselines:baselines,source:{name:file.name,sheet:'Round 9 Stints 48',refreshedAt:new Date().toISOString(),matched}};
+    state.prep={driverBaselines:baselines,source:{name:file.name,sheet:selected.name,refreshedAt:new Date().toISOString(),matched}};
     addLog(`Prep refreshed from ${file.name}: ${matched} stints`,false);
     commitState();render();toast(`Prep published for ${matched} stints.`);
   }catch(e){console.error(e);toast(`Prep refresh failed: ${e.message}`,6000)}
   finally{$('#refreshPrepBtn').disabled=!canEdit()}
+}
+
+function availabilityImportFromRows(rows){
+  let bestHeader=null,bestCount=0;
+  for(const row of rows){const timed=Object.entries(row.cells).filter(([,v])=>excelTimeToSec(v)!==null);if(timed.length>bestCount){bestHeader=row;bestCount=timed.length}}
+  if(!bestHeader||bestCount<2)throw new Error('No row with time headings was found. Use times such as 10:00, 10:15, 10:30.');
+  const timeCols=Object.entries(bestHeader.cells).map(([col,v])=>({col,sec:excelTimeToSec(v)})).filter(x=>x.sec!==null).sort((a,b)=>columnNumber(a.col)-columnNumber(b.col));
+  const blockSec=timeCols.length>1?Math.max(300,((timeCols[1].sec-timeCols[0].sec+86400)%86400)||900):900,availability={};let matched=0;
+  for(const row of rows.filter(r=>r.number>bestHeader.number)){
+    const statuses=timeCols.map(t=>String(row.cells[t.col]||'').trim().toUpperCase());if(statuses.filter(v=>['Y','P','N'].includes(v)).length<2)continue;
+    const firstCol=columnNumber(timeCols[0].col);const driverText=Object.entries(row.cells).filter(([c,v])=>columnNumber(c)<firstCol&&String(v).trim()).sort((a,b)=>columnNumber(b[0])-columnNumber(a[0]))[0]?.[1];const id=matchingDriverId(driverText);if(!id)continue;
+    const ranges=[];let active=null;
+    timeCols.forEach((t,i)=>{const status=['Y','P','N'].includes(statuses[i])?statuses[i]:'N',end=t.sec+blockSec;if(active&&active.status===status&&active.end===t.sec)active.end=end;else{active={start:t.sec,end,status};ranges.push(active)}});
+    availability[id]=ranges;matched++;
+  }
+  if(!matched)throw new Error('No selected driver rows with N, P or Y cells were found.');return {availability,matched,blockSec};
+}
+async function importAvailability(){
+  if(!canEdit()){toast('Race Control access required.');return}const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose the current DACC Motorsports.xlsx file first.');return}
+  try{if(!workbookCache||workbookCache.fileName!==file.name)await loadWorkbookChoices();const selected=selectedSheetRows('#availabilitySheetSelect'),parsed=availabilityImportFromRows(selected.rows);state.planning.availability={...state.planning.availability,...parsed.availability};state.planning.source={name:file.name,sheet:selected.name,importedAt:new Date().toISOString(),matched:parsed.matched,blockMinutes:Math.round(parsed.blockSec/60)};addLog(`Availability imported from ${selected.name}: ${parsed.matched} drivers`,false);commitState();render();toast(`Availability imported for ${parsed.matched} drivers.`)}catch(e){console.error(e);toast(`Availability import failed: ${e.message}`,7000)}
+}
+
+function readPlanningInputs(){
+  const p=state.planning;p.targetStintMinutes=Math.max(20,+$('#planTargetMin').value||p.targetStintMinutes);p.maxDriveMinutes=Math.max(30,+$('#planMaxDriveMin').value||p.maxDriveMinutes);p.minRestMinutes=Math.max(0,+$('#planMinRestMin').value||0);p.minUsefulStintMinutes=Math.max(10,+$('#planMinStintMin').value||p.minUsefulStintMinutes);p.maxConsecutive=Math.max(1,+$('#planMaxConsecutive').value||p.maxConsecutive);p.allowDouble=$('#planAllowDouble').value==='yes';p.starter=$('#planStarter').value;p.finisher=$('#planFinisher').value;
+}
+function planningRule(id){return state.planning.driverRules[id] ||= {maxDriveMinutes:null,maxStints:null,maxConsecutive:null,minRestMinutes:null}}
+function availabilityText(id){const ranges=state.planning.availability[id]||[];return ranges.filter(r=>r.status!=='N').map(r=>`${r.status} ${secToClock(r.start)}–${secToClock(r.end)}`).join(' · ')||'No imported availability'}
+async function addAvailabilityWindow(id){if(!canEdit())return;const status=await modalAsk({title:`Availability • ${label(id)}`,text:'Enter Y for confirmed, P for possible, or N for unavailable.',input:true,value:'Y',ok:'Next'});if(status===null)return;const s=String(status).trim().toUpperCase();if(!['Y','P','N'].includes(s)){toast('Enter Y, P or N.');return}const start=await modalAsk({title:`Availability • ${label(id)}`,text:'Start time, for example 18:30.',input:true,value:state.event.irlStart,ok:'Next'});if(start===null)return;const finish=await modalAsk({title:`Availability • ${label(id)}`,text:'Finish time. Overnight windows are supported.',input:true,value:state.event.irlStart,ok:'Add'});if(finish===null)return;const a=parseClock(start),b=parseClock(finish);if(a===null||b===null){toast('Use a valid HH:MM time.');return}(state.planning.availability[id] ||= []).push({start:a,end:b,status:s});commitState();render()}
+function renderPlanningControls(){
+  const p=state.planning,edit=canEdit();for(const [id,v] of [['planTargetMin',p.targetStintMinutes],['planMaxDriveMin',p.maxDriveMinutes],['planMinRestMin',p.minRestMinutes],['planMinStintMin',p.minUsefulStintMinutes],['planMaxConsecutive',p.maxConsecutive]])if(document.activeElement!==$('#'+id))$('#'+id).value=v;$('#planAllowDouble').value=p.allowDouble?'yes':'no';
+  const options='<option value="">Open / automatic</option>'+state.drivers.map(d=>`<option value="${d.id}">${escapeHtml(d.label)}</option>`).join('');for(const id of ['planStarter','planFinisher']){$('#'+id).innerHTML=options}$('#planStarter').value=p.starter||'';$('#planFinisher').value=p.finisher||'';
+  $('#planSource').textContent=p.source?`${p.source.name} • ${p.source.sheet} • ${p.source.matched} drivers • ${p.source.blockMinutes} min blocks`:'Availability not imported; legacy driver windows will be used.';
+  $('#driverPlanning').innerHTML=state.drivers.map(d=>{const r=planningRule(d.id);return `<div class="driverplan" data-driver-plan="${d.id}"><h3>${escapeHtml(d.label)}</h3><div class="availabilityline">${escapeHtml(availabilityText(d.id))}</div><div class="toolbar"><button data-add-window="${d.id}">+ Availability window</button><button data-clear-windows="${d.id}">Clear windows</button></div><div class="sidegrid" style="margin-top:7px"><label><input type="checkbox" data-rule="mustStart" ${r.mustStart?'checked':''}> Must start</label><label><input type="checkbox" data-rule="mustFinish" ${r.mustFinish?'checked':''}> Must finish</label><label><input type="checkbox" data-rule="cannotStart" ${r.cannotStart?'checked':''}> Cannot start</label><label><input type="checkbox" data-rule="cannotFinish" ${r.cannotFinish?'checked':''}> Cannot finish</label><div class="field"><label>Max drive min (blank = default)</label><input type="number" data-rule="maxDriveMinutes" value="${r.maxDriveMinutes||''}" placeholder="${p.maxDriveMinutes}"></div><div class="field"><label>Max stints (blank = no limit)</label><input type="number" data-rule="maxStints" value="${r.maxStints||''}" placeholder="No limit"></div><div class="field"><label>Max consecutive (blank = default)</label><input type="number" data-rule="maxConsecutive" value="${r.maxConsecutive||''}" placeholder="${p.maxConsecutive}"></div><div class="field"><label>Min rest min (blank = default)</label><input type="number" data-rule="minRestMinutes" value="${r.minRestMinutes??''}" placeholder="${p.minRestMinutes}"></div><div class="field"><label>Earliest</label><input type="time" data-rule="earliest" value="${r.earliest||''}"></div><div class="field"><label>Latest</label><input type="time" data-rule="latest" value="${r.latest||''}"></div></div></div>`}).join('');
+  $('#driverPlanning').querySelectorAll('[data-driver-plan]').forEach(card=>card.querySelectorAll('[data-rule]').forEach(input=>{input.disabled=!edit;input.onchange=()=>{const rule=planningRule(card.dataset.driverPlan),key=input.dataset.rule;rule[key]=input.type==='checkbox'?input.checked:(input.type==='number'?+input.value:input.value);commitState();validateAndRenderPlan()}}));
+  $('#driverPlanning').querySelectorAll('[data-add-window]').forEach(b=>{b.disabled=!edit;b.onclick=()=>addAvailabilityWindow(b.dataset.addWindow)});$('#driverPlanning').querySelectorAll('[data-clear-windows]').forEach(b=>{b.disabled=!edit;b.onclick=()=>{state.planning.availability[b.dataset.clearWindows]=[];commitState();render()}});
+  for(const id of ['planTargetMin','planMaxDriveMin','planMinRestMin','planMinStintMin','planMaxConsecutive','planAllowDouble','planStarter','planFinisher'])$('#'+id).disabled=!edit;for(const id of ['generateScheduleBtn','regenerateScheduleBtn','replanFutureBtn','importAvailabilityBtn'])$('#'+id).disabled=!edit;
+}
+function validateSchedulePlan(){
+  const rows=schedule(),errors=[],warnings=[],p=state.planning,stats={};state.drivers.forEach(d=>stats[d.id]={stints:0,laps:0,drive:0,longest:0,minRest:null,lastFinish:null,block:0,lastIndex:-2,consecutive:0});
+  rows.forEach((r,i)=>{const s=stats[r.driver] ||= {stints:0,laps:0,drive:0,longest:0,minRest:null,lastFinish:null,block:0,lastIndex:-2,consecutive:0},rule=planningRule(r.driver);s.stints++;s.laps+=r.laps;s.drive+=r.drive;if(s.lastIndex===i-1){s.block+=r.drive+(i?state.event.pitLossSec:0);s.consecutive++}else{s.block=r.drive;s.consecutive=1;if(s.lastFinish!==null){const rest=r.startElapsed-s.lastFinish;s.minRest=s.minRest===null?rest:Math.min(s.minRest,rest);if(rest<(rule.minRestMinutes??p.minRestMinutes)*60)warnings.push(`${label(r.driver)} has only ${fmtSec(rest)} rest before stint ${i+1}.`)}}s.longest=Math.max(s.longest,s.block);s.lastFinish=r.finishElapsed;s.lastIndex=i;if(r.availabilityStatus==='N')errors.push(`${label(r.driver)} is unavailable for stint ${i+1}.`);if(r.availabilityStatus==='P')warnings.push(`${label(r.driver)} needs confirmation for stint ${i+1}.`);if(r.drive<p.minUsefulStintMinutes*60)warnings.push(`Stint ${i+1} is shorter than ${p.minUsefulStintMinutes} minutes.`);if(s.drive>(rule.maxDriveMinutes||p.maxDriveMinutes)*60)errors.push(`${label(r.driver)} exceeds maximum driving time.`);if(s.stints>(rule.maxStints||99))errors.push(`${label(r.driver)} exceeds maximum stints.`);if(s.consecutive>(rule.maxConsecutive||p.maxConsecutive))errors.push(`${label(r.driver)} exceeds maximum consecutive stints.`);});
+  const first=rows[0],last=rows.at(-1);if(first){const rr=planningRule(first.driver);if(rr.cannotStart)errors.push(`${label(first.driver)} cannot start.`)}if(last){const rr=planningRule(last.driver);if(rr.cannotFinish)errors.push(`${label(last.driver)} cannot finish.`);if(last.finishElapsed<state.event.raceHours*3600)errors.push(`Race has ${fmtSec(state.event.raceHours*3600-last.finishElapsed)} uncovered.`)}for(const d of state.drivers){const r=planningRule(d.id);if(r.mustStart&&first?.driver!==d.id)errors.push(`${d.label} must start.`);if(r.mustFinish&&last?.driver!==d.id)errors.push(`${d.label} must finish.`)}
+  return {errors:[...new Set(errors)],warnings:[...new Set(warnings)],stats};
+}
+function validateAndRenderPlan(){
+  const v=validateSchedulePlan(),status=v.errors.length?'Invalid':v.warnings.length?'Warnings':'Valid',el=$('#planStatus');el.textContent=`Schedule ${status}`;el.className=`statuspill status-${status.toLowerCase()}`;$('#planMessages').textContent=[...v.errors.map(x=>'ERROR: '+x),...v.warnings.map(x=>'WARNING: '+x)].join('\n')||'All selected driver availability and scheduling rules are satisfied.';return v;
+}
+function assignDriversForSlots(slots,prefix,allowPossible){
+  const requiredStarter=state.planning.starter||state.drivers.find(d=>planningRule(d.id).mustStart)?.id||'',requiredFinisher=state.planning.finisher||state.drivers.find(d=>planningRule(d.id).mustFinish)?.id||'';
+  let beam=[{drivers:prefix.map(s=>s.driver),score:0,total:{},last:{},consecutive:{}}];prefix.forEach((st,i)=>{for(const b of beam){b.total[st.driver]=(b.total[st.driver]||0)+st.laps*state.event.avgLapSec;b.last[st.driver]=i;b.consecutive[st.driver]=(b.drivers[i-1]===st.driver?(b.consecutive[st.driver]||0)+1:1)}});
+  for(let i=prefix.length;i<slots.length;i++){const slot=slots[i],next=[];for(const b of beam){for(const d of state.drivers){const rule=planningRule(d.id),forced=state.stints[i]?.locked?state.stints[i].driver:null;if(forced&&d.id!==forced)continue;if(i===0&&(requiredStarter&&d.id!==requiredStarter||rule.cannotStart))continue;if(i===slots.length-1&&(requiredFinisher&&d.id!==requiredFinisher||rule.cannotFinish))continue;const av=availabilityStatus(d.id,slot.startClock,slot.finishClock);if(av==='N'||(av==='P'&&!allowPossible))continue;const consec=b.drivers[i-1]===d.id?(b.consecutive[d.id]||0)+1:1,maxConsec=Math.min(rule.maxConsecutive||state.planning.maxConsecutive,state.planning.allowDouble?99:1);if(consec>maxConsec)continue;const previousIndex=b.last[d.id];if(Number.isInteger(previousIndex)&&previousIndex<i-1){const rest=slot.startClock-slots[previousIndex].finishClock;if(rest<(rule.minRestMinutes??state.planning.minRestMinutes)*60)continue}const drive=(b.total[d.id]||0)+slot.drive;if(drive>(rule.maxDriveMinutes||state.planning.maxDriveMinutes)*60)continue;const stints=b.drivers.filter(x=>x===d.id).length+1;if(stints>(rule.maxStints||99))continue;if(rule.earliest&&slot.startClock<nearestClock(timeToSec(rule.earliest),slot.startClock))continue;if(rule.latest&&slot.finishClock>nearestClock(timeToSec(rule.latest),slot.finishClock))continue;const totals={...b.total,[d.id]:drive},last={...b.last,[d.id]:i},consecutive={...b.consecutive,[d.id]:consec};const avg=Object.values(totals).reduce((a,x)=>a+x,0)/state.drivers.length,imbalance=Object.values(totals).reduce((a,x)=>a+Math.abs(x-avg),0);next.push({drivers:[...b.drivers,d.id],total:totals,last,consecutive,score:b.score+(av==='P'?100000:0)+imbalance/100+(consec>1?120:0)})}}beam=next.sort((a,b)=>a.score-b.score).slice(0,350);if(!beam.length)return null}return beam[0]?.drivers||null;
+}
+function generateAutomaticSchedule(futureOnly=false){
+  if(!canEdit())return;readPlanningInputs();const e=state.event,p=state.planning,race=e.raceHours*3600,pit=e.pitLossSec,target=Math.max(p.targetStintMinutes,p.minUsefulStintMinutes)*60;let count=Math.max(1,Math.ceil((race+pit)/(target+pit))),drive=Math.max(p.minUsefulStintMinutes*60,(race-(count-1)*pit)/count);if(count>1&&drive<p.minUsefulStintMinutes*60){count--;drive=(race-(count-1)*pit)/count}const prefixCount=futureOnly&&state.runtime.status!=='PRE-RACE'?state.runtime.currentIndex+1:0,prefix=state.stints.slice(0,prefixCount),lastLocked=state.stints.reduce((m,s,i)=>s.locked?Math.max(m,i):m,-1);count=Math.max(count,prefixCount+1,lastLocked+1);const slots=[];let elapsed=0,base=state.runtime.status==='PRE-RACE'?timeToSec(e.irlStart):actualRaceStartClockSec();for(let i=0;i<count;i++){if(i<prefixCount){const row=schedule()[i];slots.push({drive:row.drive,startClock:row.start,finishClock:row.finish});elapsed=row.finishElapsed+pit+(row.brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0)}else{const remainingCount=count-i,remaining=Math.max(drive,race-elapsed-(remainingCount-1)*pit),d=Math.max(p.minUsefulStintMinutes*60,remaining/remainingCount),laps=Math.max(1,Math.round(d/e.avgLapSec)),actualDrive=laps*e.avgLapSec;slots.push({drive:actualDrive,laps,startClock:base+elapsed,finishClock:base+elapsed+actualDrive});elapsed+=actualDrive+(i<count-1?pit:0)}}
+  let drivers=assignDriversForSlots(slots,prefix,false),usedPossible=false;if(!drivers){drivers=assignDriversForSlots(slots,prefix,true);usedPossible=!!drivers}if(!drivers){toast('No complete schedule fits the current availability and hard rules.',7000);validateAndRenderPlan();return}
+  const old=state.stints;state.stints=slots.map((slot,i)=>i<prefixCount||old[i]?.locked?old[i]:{driver:drivers[i],laps:slot.laps,brakeChangeAfter:old[i]?.brakeChangeAfter||false,locked:false,workbookStintNo:i+1,prepOverrides:old[i]?.prepOverrides||{},driverSetupOverride:{}});addLog(`${futureOnly?'Future schedule replanned':'Schedule generated'}${usedPossible?' using provisional availability':''}`,false);commitState();render();toast(usedPossible?'Schedule created; provisional P stints need confirmation.':'Schedule created from confirmed availability.')
 }
 
 function render(){
@@ -1028,11 +1144,12 @@ function render(){
     const opts=state.drivers.map(d=>`<option value="${d.id}" ${d.id===r.driver?'selected':''}>${d.label}</option>`).join('');
     const rowState=r.isActualFinish?'<span style="color:var(--good)">ACTUAL</span>':
       (i===cur&&state.runtime.status!=='PRE-RACE'?'<span style="color:var(--accent)">LIVE</span>':
-      (r.avail?'<span style="color:var(--good)">✓</span>':'<span style="color:var(--bad)">OUT</span>'));
+      (r.availabilityStatus==='P'?'<span class="provisional">P • CONFIRM</span>':r.avail?'<span style="color:var(--good)">Y</span>':'<span style="color:var(--bad)">OUT</span>'));
     const locked=!edit||r.isActualFinish||(state.runtime.status!=='PRE-RACE' && i<=cur);
     tr.innerHTML=`<td>${i+1}</td><td><select data-driver="${i}" ${locked?'disabled':''}>${opts}</select></td>
       <td class="num"><input class="small" type="number" min="1" data-laps="${i}" value="${r.laps}" ${locked?'disabled':''}></td>
       <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint (+45 seconds to pit time)"></td>
+      <td style="text-align:center"><input class="lockbox" type="checkbox" data-lock="${i}" ${state.stints[i].locked?'checked':''} ${(!edit||(state.runtime.status!=='PRE-RACE'&&i<=cur))?'disabled':''} title="Keep this stint unchanged when regenerating"></td>
       <td>${secToClock(r.start)}${r.isActualStart?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}${Number.isFinite(state.runtime.serverHistory?.[i]?.serverStart)?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.serverFinish)}</td>
       <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!edit?'disabled':''}>NOW</button>`:''}</td>
       <td><div class="rowbtns">
@@ -1054,6 +1171,7 @@ function render(){
     commitState();
     render();
   });
+  tbody.querySelectorAll('[data-lock]').forEach(x=>x.onchange=()=>{if(!canEdit())return;state.stints[+x.dataset.lock].locked=x.checked;commitState();validateAndRenderPlan()});
   tbody.querySelectorAll('[data-up]').forEach(x=>x.onclick=()=>move(+x.dataset.up,-1));
   tbody.querySelectorAll('[data-actual]').forEach(x=>x.onclick=()=>editActualStart(+x.dataset.actual));
   tbody.querySelectorAll('[data-actual-finish]').forEach(x=>x.onclick=()=>editActualFinish(+x.dataset.actualFinish));
@@ -1069,15 +1187,16 @@ function render(){
     render();
   });
 
-  const totals={};state.drivers.forEach(d=>totals[d.id]={laps:0,drive:0,stints:0});
-  sch.forEach(r=>{totals[r.driver]??={laps:0,drive:0,stints:0};totals[r.driver].laps+=r.laps;totals[r.driver].drive+=r.drive;totals[r.driver].stints++});
-  $('#totalsBody').innerHTML=state.drivers.map(d=>`<tr><td>${d.label}</td><td>${totals[d.id].laps}</td><td>${fmtSec(totals[d.id].drive)}</td><td>${totals[d.id].stints}</td></tr>`).join('');
+  const totals={};state.drivers.forEach(d=>totals[d.id]={laps:0,drive:0,stints:0,longest:0,minRest:null,lastFinish:null,block:0,lastIndex:-2,first:null,final:null});
+  sch.forEach((r,i)=>{const t=totals[r.driver]??={laps:0,drive:0,stints:0,longest:0,minRest:null,lastFinish:null,block:0,lastIndex:-2,first:null,final:null};t.laps+=r.laps;t.drive+=r.drive;t.stints++;t.first??=r.start;t.final=r.finish;if(t.lastIndex===i-1)t.block+=r.drive+(state.event.pitLossSec||0);else{if(t.lastFinish!==null){const rest=r.startElapsed-t.lastFinish;t.minRest=t.minRest===null?rest:Math.min(t.minRest,rest)}t.block=r.drive}t.longest=Math.max(t.longest,t.block);t.lastFinish=r.finishElapsed;t.lastIndex=i});
+  $('#totalsBody').innerHTML=state.drivers.map(d=>{const t=totals[d.id];return `<tr><td>${d.label}</td><td>${t.laps}</td><td>${fmtSec(t.drive)}</td><td>${t.stints}</td><td>${fmtSec(t.longest)}</td><td>${t.minRest===null?'—':fmtSec(t.minRest)}</td><td>${t.first===null?'—':secToClock(t.first)}</td><td>${t.final===null?'—':secToClock(t.final)}</td></tr>`}).join('');
 
   const bad=sch.filter(r=>!r.avail),scheduleOverrun=(sch.at(-1)?.finishElapsed||0)-e.raceHours*3600,warnings=[];
   if(bad.length) warnings.push(`Availability: stint${bad.length>1?'s':''} ${bad.map(x=>x.i+1).join(', ')} outside declared window.`);
   if(scheduleOverrun>0) warnings.push(`Projected schedule is ${fmtSec(scheduleOverrun)} longer than the ${e.raceHours}h race.`);
   $('#availWarning').classList.toggle('hidden',!warnings.length);
   $('#availWarning').textContent=warnings.join(' ');
+  renderPlanningControls();validateAndRenderPlan();
   renderLog();renderIncidentLog();renderSharedMeta();updateMobileStatus();try{updateNotifyButton()}catch(e){console.warn('notify UI ignored',e)};
 }
 function move(i,d){
@@ -1756,7 +1875,13 @@ $('#serverResyncBtn').onclick=serverResync;
 $('#delayBtn').onclick=async()=>{if(!canEdit())return;const v=await modalAsk({title:'Delay downstream',text:'Delay FUTURE planned schedule by how many minutes? Current/completed timing is preserved.',input:true,value:'3',ok:'Apply delay'});if(v!==null){const mins=parseFloat(v);if(Number.isFinite(mins))delaySchedule(mins)}};
 $('#brakePlanBtn').onclick=configureBrakePlan;
 $('#notifyBtn').onclick=enableNotifications;
+$('#readWorkbookBtn').onclick=loadWorkbookChoices;
 $('#refreshPrepBtn').onclick=refreshPrepData;
+$('#importAvailabilityBtn').onclick=importAvailability;
+$('#generateScheduleBtn').onclick=()=>generateAutomaticSchedule(false);
+$('#regenerateScheduleBtn').onclick=()=>generateAutomaticSchedule(state.runtime.status!=='PRE-RACE');
+$('#replanFutureBtn').onclick=()=>generateAutomaticSchedule(true);
+$('#validateScheduleBtn').onclick=()=>{readPlanningInputs();commitState();validateAndRenderPlan();toast('Schedule validation updated.')};
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
 $('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==effectiveCurrentIndex();};
 $('#quickActualStartBtn').onclick=async()=>{if(await unlockControlWithPrompt())await editActualStart(Number($('#actualStartStintSelect').value));};
@@ -1827,7 +1952,7 @@ setInterval(()=>{
       state.runtime.status='FINISHED';addLog('Race countdown reached zero — FINISHED',false);commitState();
     }
     else if(catchUpDueStints())return;
-    render();
+    if(!/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName||''))render();
   }
 },1000);
 
@@ -1846,6 +1971,17 @@ function updateMobileStatus(){
   }else el.textContent='';
 }
 
+function simbotStatus(now=Date.now()){const age=simbot.lastPayloadAt?now-simbot.lastPayloadAt:Infinity;if(simbot.connected&&age<=15000)return 'LIVE';if(simbot.lastPayloadAt&&age<=60000)return 'STALE';return 'OFFLINE'}
+function simbotTime(value){if(value===null||value===undefined||value==='')return '—';if(typeof value==='string'&&value.includes(':'))return value;const ms=Number(value);if(!Number.isFinite(ms))return '—';const total=Math.max(0,Math.round(ms/1000));return `${Math.floor(total/60)}:${pad(total%60)}`}
+function simbotGap(a,b){if(!a||!b)return '—';const lapDiff=Math.abs(Number(a.lapCount||0)-Number(b.lapCount||0));if(lapDiff)return `${lapDiff} lap${lapDiff===1?'':'s'}`;const gap=Math.abs(Number(a.totalRaceTime)-Number(b.totalRaceTime));return Number.isFinite(gap)?simbotTime(gap):'—'}
+function renderSimBot(){
+  try{const status=simbotStatus(),statusEl=$('#simbotStatus');if(!statusEl)return;statusEl.textContent=status;statusEl.className=`timingstatus timing-${status.toLowerCase()}`;const payload=simbot.payload||{},drivers=Array.isArray(payload.driversArray)?payload.driversArray.slice():[],ordered=drivers.sort((a,b)=>Number(b.numSectors||0)-Number(a.numSectors||0)||Number(a.totalRaceTime||Infinity)-Number(b.totalRaceTime||Infinity)),idx=ordered.findIndex(x=>String(x.raceNumber)===SIMBOT_CAR),car=idx>=0?ordered[idx]:null,session=payload.sessionData||{};$('#simbotPosition').textContent=car?String(idx+1):'—';$('#simbotLaps').textContent=car&&Number.isFinite(+car.lapCount)?String(car.lapCount):'—';$('#simbotLast').textContent=car?simbotTime(car.lastLap?.lapTime??car.lastLap?.lapTimeMs):'—';$('#simbotBest').textContent=car?simbotTime(car.bestLap?.lapTime??car.bestLap?.lapTimeMs):'—';$('#simbotAhead').textContent=car&&idx>0?simbotGap(car,ordered[idx-1]):car&&idx===0?'LEADER':'—';$('#simbotBehind').textContent=car&&idx<ordered.length-1?simbotGap(car,ordered[idx+1]):'—';const rawRemaining=session.timeRemaining,remaining=Number(rawRemaining);$('#simbotRemaining').textContent=typeof rawRemaining==='string'&&rawRemaining.includes(':')?rawRemaining:(Number.isFinite(remaining)?fmtSec(Math.max(0,remaining*60)):'—');$('#simbotSession').textContent=[session.trackName,session.sessionType].filter(Boolean).join(' • ')||'—';$('#simbotUpdated').textContent=simbot.lastPayloadAt?`${status==='LIVE'?'Updated':'Last update'} ${Math.floor((Date.now()-simbot.lastPayloadAt)/1000)}s ago`:(simbot.error||'Waiting for SimBot')}
+  catch(err){console.warn('SimBot display ignored',err)}
+}
+function initSimBot(){
+  $('#simbotFullLink').href=SIMBOT_PAGE_URL;try{if(typeof window.io!=='function')throw new Error('Timing client unavailable');const options={transports:['websocket'],timeout:10000,reconnection:true,reconnectionDelay:1500,reconnectionDelayMax:10000},endpoint=isDiscordActivityHost()?location.origin:'https://web.simbot.app';if(isDiscordActivityHost())options.path='/simbot/socket.io';const socket=window.io(endpoint,options);simbot.socket=socket;socket.on('connect',()=>{simbot.connected=true;simbot.error=null;socket.emit('join',{server:SIMBOT_SERVER});renderSimBot()});socket.on(SIMBOT_SERVER,data=>{if(!data||typeof data!=='object')return;simbot.payload=data;simbot.lastPayloadAt=Date.now();simbot.error=null;renderSimBot()});socket.on('disconnect',()=>{simbot.connected=false;renderSimBot()});socket.on('connect_error',err=>{simbot.connected=false;simbot.error='Timing feed unavailable';console.warn('SimBot unavailable',err?.message||err);renderSimBot()})}catch(err){simbot.error='Timing feed unavailable';console.warn('SimBot disabled',err);renderSimBot()}setInterval(renderSimBot,5000)
+}
+
 async function initDiscord(){
   const clientId=String(cfg.discordClientId||'').trim();
   if(!clientId)return;
@@ -1856,7 +1992,7 @@ async function initDiscord(){
 }
 
 const _modal=$('#modalBack'); if(_modal){_modal.style.display='none';_modal.classList.add('hidden');}
-const ie=$('#incidentText');if(ie)ie.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addIncident();}});const ic=$('#incidentCar');if(ic&&!ic.value)ic.value=localStorage.getItem('dacc-incident-car')||'48';initCalcInputs();render();calculateFuel();initDiscord();
+const ie=$('#incidentText');if(ie)ie.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addIncident();}});const ic=$('#incidentCar');if(ic&&!ic.value)ic.value=localStorage.getItem('dacc-incident-car')||'48';initCalcInputs();render();calculateFuel();initDiscord();initSimBot();
 if(isDiscordActivityHost()){
   $('#sharedHelp').textContent='Discord Activity mode: shared state uses the /supabase URL Mapping.';
 }
