@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.2</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -158,6 +158,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="validateScheduleBtn">Validate</button>
             <button class="good" id="exportPrepBtn">Export Prep Workbook</button>
           </div>
+          <div class="sub">Workflow: generate and agree the stint schedule here → export the prep workbook → complete the yellow strategy cells in Excel → load that completed file under Race Pack / Excel → Publish Prep Data.</div>
           <div class="planstatus"><span id="planStatus" class="statuspill">Not checked</span><span class="sub" id="planSource">Availability not imported.</span></div>
           <div id="planMessages" class="planmessages"></div>
           <div id="driverPlanning" class="driverplanning"></div>
@@ -212,7 +213,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       <section class="card" style="margin-top:12px">
         <h2>Race Pack / Excel</h2>
         <div class="cardbody">
-          <div class="sub">Choose the current DACC Motorsports.xlsx file. V5 discovers its sheets locally so the same app can be used for every round. No OneDrive credentials are used.</div>
+          <div class="sub">For planning, choose the Race Pack and import its drivers and availability. After scheduling, use Export Prep Workbook above. When its yellow strategy cells are complete, choose that exported file here and Publish Prep Data. No OneDrive credentials are used.</div>
           <div class="toolbar"><input id="prepWorkbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="readWorkbookBtn">Read workbook</button></div>
           <div class="sidegrid"><div class="field"><label>Stints / prep sheet</label><select id="prepSheetSelect"></select></div><div class="field"><label>Availability sheet</label><select id="availabilitySheetSelect"></select></div></div>
           <div class="toolbar"><button class="primary" id="importRosterBtn">Import Event Drivers</button><button id="importAvailabilityBtn">Import N / P / Y Availability</button><button id="refreshPrepBtn">Publish Prep Data</button></div>
@@ -289,7 +290,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4 • schedule-to-prep workbook export • nearby team names in live timing • no database changes.</footer>
+  <footer>DACC Race Engineer V5.4.2 • team Actual Stint Timing • guided schedule-to-prep workflow • no database changes.</footer>
 </div>
 
 <script>
@@ -349,6 +350,8 @@ const shared={
   localDirty:false,
   conflictGuard:true
 };
+const teamTimingRelay={socket:null,heartbeat:null,reconnect:null,seen:new Set(),ref:1,code:null,ready:false};
+const canSubmitTiming=()=>canEdit() || !!(shared.supabase&&shared.code);
 
 function migrateRuntime(){
   state.runtime ||= {};
@@ -614,11 +617,12 @@ async function setActualStart(i,irlClock,{syncRemainingToMain=false}={}){
 }
 async function editActualStart(i){
   if(canEdit()&&state.runtime.status==='LIVE'&&i>state.runtime.currentIndex)catchUpDueStints();
-  if(!canEdit()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
+  if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
   const row=schedule()[i];
   const irl=await modalAsk({title:`Stint ${i+1} actual IRL start`,text:'Enter actual IRL time as HH:MM:SS. The server time is calculated automatically.',input:true,value:secToClock(row.start),ok:'Save actual start'});
   if(irl===null)return;
   const irlSec=parseClock(irl);if(irlSec===null){toast('Enter IRL time as HH:MM:SS.');return}
+  if(!canEdit())return requestTeamTiming('start',i,irlSec);
   await setActualStart(i,irlSec);
 }
 async function setActualFinish(i,irlClock){
@@ -647,15 +651,17 @@ async function setActualFinish(i,irlClock){
 }
 async function editActualFinish(i){
   if(canEdit()&&state.runtime.status==='LIVE'&&i>state.runtime.currentIndex)catchUpDueStints();
-  if(!canEdit()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
+  if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
   const row=schedule()[i];
   const irl=await modalAsk({title:`Stint ${i+1} actual IRL finish`,text:i===state.runtime.currentIndex?'Enter the actual IRL finish time as HH:MM:SS. Saving advances to the next stint from this exact time.':'Enter the corrected actual IRL finish as HH:MM:SS. Later projections recalculate automatically.',input:true,value:secToClock(row.finish),ok:'Save actual finish'});
   if(irl===null)return;
   const irlSec=parseClock(irl);if(irlSec===null){toast('Enter IRL time as HH:MM:SS.');return}
+  if(!canEdit())return requestTeamTiming('finish',i,irlSec);
   await setActualFinish(i,irlSec);
 }
 async function setCurrentStartNow(){
-  if(!canEdit()||state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED')return;
+  if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED')return;
+  if(!canEdit())return requestTeamTiming('now',state.runtime.currentIndex,null);
   catchUpDueStints();
   if(state.runtime.status==='FINISHED')return;
   const i=state.runtime.currentIndex;
@@ -986,7 +992,7 @@ async function exportPrepWorkbook(){
     const stint=state.stints[index],prep=prepForStint(stint),preceding=index?Number(state.event.pitLossSec||0)+(state.stints[index-1].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0):0;
     return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',prep.pitStrategy||'',prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
   });
-  const endRow=6+outputRows.length,headerStyles=Array(30).fill(1),bodyStyles=Array(30).fill(2);bodyStyles[1]=3;
+  const endRow=6+outputRows.length,headerStyles=Array(30).fill(1),bodyStyles=Array(30).fill(2);for(let i=0;i<=10;i++)bodyStyles[i]=3;
   const sheetRows=[xlsxRow(1,['DACC_RACE_ENGINEER_PREP_V1'],[5]),xlsxRow(2,['DACC Race Engineer preparation workbook'],[4]),xlsxRow(3,[`Exported ${new Date().toLocaleString()} • Complete the yellow preparation cells, then select this file in Race Engineer and press Publish Prep Data.`],[5]),xlsxRow(6,headers,headerStyles),...outputRows.map((values,index)=>xlsxRow(index+7,values,bodyStyles))].join('');
   const columns='<cols><col min="1" max="1" width="9" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="3" width="20" customWidth="1"/><col min="4" max="4" width="12" customWidth="1"/><col min="5" max="10" width="19" customWidth="1"/><col min="11" max="15" width="14" customWidth="1"/><col min="16" max="16" width="25" customWidth="1"/><col min="17" max="25" width="14" customWidth="1"/><col min="26" max="29" width="11" customWidth="1"/><col min="30" max="30" width="32" customWidth="1"/></cols>';
   const prepSheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane xSplit="3" ySplit="6" topLeftCell="D7" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>${columns}<sheetData>${sheetRows}</sheetData><autoFilter ref="A6:AD${endRow}"/><dataValidations count="1"><dataValidation type="list" allowBlank="1" sqref="S7:S${endRow}"><formula1>"Y,N"</formula1></dataValidation></dataValidations></worksheet>`;
@@ -1210,7 +1216,7 @@ function render(){
   $('#quickActualStartBtn').disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualFinishBtn').disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||Number(actualSelect.value)!==cur;
-  $('#actualStartHelp').textContent=!edit?'Tap a timing button, then enter the existing Race Control key on this phone.':state.runtime.status==='PRE-RACE'?'Available after the race starts.':'Choose the current or a completed stint; server start/finish is calculated automatically.';
+  $('#actualStartHelp').textContent=state.runtime.status==='PRE-RACE'?'Available after the race starts.':!edit?'Any connected driver can set times. Keep a Race Control laptop open to publish the change to everyone.':'Choose the current or a completed stint; server start/finish is calculated automatically.';
 
   const tbody=$('#stintTable tbody');tbody.innerHTML='';
   sch.forEach((r,i)=>{
@@ -1226,7 +1232,7 @@ function render(){
       <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint (+45 seconds to pit time)"></td>
       <td style="text-align:center"><input class="lockbox" type="checkbox" data-lock="${i}" ${state.stints[i].locked?'checked':''} ${(!edit||(state.runtime.status!=='PRE-RACE'&&i<=cur))?'disabled':''} title="Keep this stint unchanged when regenerating"></td>
       <td>${secToClock(r.start)}${r.isActualStart?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}${Number.isFinite(state.runtime.serverHistory?.[i]?.serverStart)?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.serverFinish)}</td>
-      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!edit||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!edit?'disabled':''}>NOW</button>`:''}</td>
+      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!canSubmitTiming()?'disabled':''}>NOW</button>`:''}</td>
       <td><div class="rowbtns">
         <button data-up="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur+1))?'disabled':''}>↑</button>
         <button data-down="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur))?'disabled':''}>↓</button>
@@ -1751,6 +1757,98 @@ async function supa(path,{method='GET',body=null,prefer=null}={}){
   if(!res.ok) throw new Error(data?.message||data?.hint||text||`HTTP ${res.status}`);
   return data;
 }
+function teamTimingTopic(code){return `dacc-team-timing-${String(code||'').toUpperCase()}`}
+async function broadcastTeamTiming(request){
+  const key=String(cfg.supabaseAnonKey||cfg.supabasePublishableKey||'').trim();
+  const root=isDiscordActivityHost()?`${location.origin}/supabase`:String(cfg.supabaseUrl||'').replace(/\/+$/,'');
+  const response=await fetch(`${root}/realtime/v1/api/broadcast`,{
+    method:'POST',headers:{apikey:key,'Content-Type':'application/json'},cache:'no-store',
+    body:JSON.stringify({messages:[{topic:teamTimingTopic(shared.code),event:'timing-request',payload:request}]})
+  });
+  if(!response.ok)throw new Error(`Team timing relay unavailable (HTTP ${response.status})`);
+}
+async function requestTeamTiming(action,index,irlClock){
+  if(!shared.supabase||!shared.code){toast('Join the shared race to submit a time.');return false}
+  const id=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const request={id,action,index,irlClock,createdAt:Date.now()};
+  try{await broadcastTeamTiming(request)}catch(err){console.warn(err);toast(`Time was not submitted: ${err.message}`,6000);return false}
+  toast('Time sent. Waiting for Race Control laptop to publish it…',5000);
+  for(let attempt=0;attempt<16;attempt++){
+    await new Promise(resolve=>setTimeout(resolve,1000));
+    if(!shared.code)return false;
+    if(state.runtime.teamTimingReceipts?.[id]){toast('Time saved for everyone.');return true}
+  }
+  toast('Time was not confirmed. Keep a Race Control laptop open, then try again.',7000);
+  return false;
+}
+async function handleTeamTimingRequest(request){
+  if(!shared.isController||!shared.code||!teamTimingRelay.ready||!request||typeof request!=='object')return;
+  const {id,action,index,irlClock,createdAt}=request;
+  if(typeof id!=='string'||id.length>100||!['start','finish','now'].includes(action)||
+     !Number.isInteger(index)||!Number.isFinite(createdAt)||Math.abs(Date.now()-createdAt)>30000||
+     (action!=='now'&&(!Number.isInteger(irlClock)||irlClock<0||irlClock>=86400)))return;
+  if(teamTimingRelay.seen.has(id))return;
+  teamTimingRelay.seen.add(id);
+  if(teamTimingRelay.seen.size>100)teamTimingRelay.seen.clear();
+  try{
+    if(shared.localDirty)return;
+    const data=await supa(`dacc_race_sessions?select=state,updated_at&code=eq.${encodeURIComponent(shared.code)}&is_active=eq.true&limit=1`);
+    const latest=Array.isArray(data)?data[0]:null;
+    if(!latest)return;
+    if(latest.updated_at!==shared.lastUpdated)applyRemote(latest.state,latest.updated_at);
+    if(state.runtime.teamTimingReceipts?.[id])return;
+    const cur=state.runtime.currentIndex;
+    if(state.runtime.status==='PRE-RACE'||index<0||index>cur||index>=state.stints.length||
+       (action==='now'&&(index!==cur||state.runtime.status==='FINISHED')))return;
+    if(action==='finish'){
+      if(index===cur&&state.runtime.status!=='LIVE')return;
+      const row=schedule()[index],finish=nearestClock(irlClock,row.finish)-actualRaceStartClockSec();
+      if(finish<row.startElapsed||(index===cur&&finish>elapsedRaceSec()+5)||
+         (index<cur&&Number.isFinite(state.runtime.actualStints[index+1]?.startElapsed)&&finish>state.runtime.actualStints[index+1].startElapsed))return;
+    }
+    state.runtime.teamTimingReceipts ||= {};
+    state.runtime.teamTimingReceipts[id]=Date.now();
+    const ids=Object.keys(state.runtime.teamTimingReceipts);
+    for(const old of ids.slice(0,Math.max(0,ids.length-30)))delete state.runtime.teamTimingReceipts[old];
+    if(action==='start')await setActualStart(index,irlClock);
+    else if(action==='finish')await setActualFinish(index,irlClock);
+    else await setCurrentStartNow();
+    if(!await commitState({immediate:true}))delete state.runtime.teamTimingReceipts[id];
+  }catch(err){console.warn('Team timing request ignored',err);if(state.runtime.teamTimingReceipts)delete state.runtime.teamTimingReceipts[id]}
+}
+function stopTeamTimingRelay(){
+  clearInterval(teamTimingRelay.heartbeat);clearTimeout(teamTimingRelay.reconnect);
+  teamTimingRelay.ready=false;teamTimingRelay.code=null;
+  if(teamTimingRelay.socket){teamTimingRelay.socket.onclose=null;teamTimingRelay.socket.close();teamTimingRelay.socket=null}
+}
+function startTeamTimingRelay(){
+  if(!shared.isController||!shared.code||!shared.supabase)return stopTeamTimingRelay();
+  if(teamTimingRelay.socket&&teamTimingRelay.code===shared.code)return;
+  stopTeamTimingRelay();
+  const key=String(cfg.supabaseAnonKey||cfg.supabasePublishableKey||'').trim();
+  const root=isDiscordActivityHost()?`${location.origin.replace(/^http/,'ws')}/supabase`:String(cfg.supabaseUrl||'').replace(/^http/,'ws').replace(/\/+$/,'');
+  const code=shared.code,topic=`realtime:${teamTimingTopic(code)}`;
+  let socket;
+  try{socket=new WebSocket(`${root}/realtime/v1/websocket?apikey=${encodeURIComponent(key)}&vsn=1.0.0`)}
+  catch(err){console.warn('Team timing relay unavailable',err);return}
+  teamTimingRelay.socket=socket;teamTimingRelay.code=code;
+  socket.onopen=()=>socket.send(JSON.stringify({topic,event:'phx_join',payload:{config:{broadcast:{ack:false,self:false},presence:{enabled:false},private:false}},ref:String(teamTimingRelay.ref++),join_ref:'1'}));
+  socket.onmessage=event=>{
+    let message;try{message=JSON.parse(event.data)}catch{return}
+    if(message.event==='phx_reply'&&message.topic===topic){teamTimingRelay.ready=message.payload?.status==='ok';return}
+    if(message.event==='broadcast'&&message.topic===topic&&message.payload?.event==='timing-request'){
+      void handleTeamTimingRequest(message.payload.payload);
+    }
+  };
+  socket.onclose=()=>{
+    clearInterval(teamTimingRelay.heartbeat);teamTimingRelay.ready=false;teamTimingRelay.socket=null;
+    if(shared.isController&&shared.code===code)teamTimingRelay.reconnect=setTimeout(startTeamTimingRelay,3000);
+  };
+  socket.onerror=err=>console.warn('Team timing relay connection unavailable',err);
+  teamTimingRelay.heartbeat=setInterval(()=>{
+    if(socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:String(teamTimingRelay.ref++)}));
+  },20000);
+}
 async function verifyController(code,key){
   if(!shared.supabase||!code||!key)return false;
   try{
@@ -1761,6 +1859,8 @@ async function verifyController(code,key){
   }catch(err){console.error(err);return false}
 }
 async function unsubscribeShared(){
+  stopTeamTimingRelay();
+  clearInterval(shared.channel);
   shared.channel=null;
 }
 async function pollShared(){
@@ -1785,6 +1885,7 @@ async function subscribeShared(){
   setSyncStatus('LIVE');
   clearInterval(shared.channel);
   shared.channel=setInterval(pollShared,1000);
+  startTeamTimingRelay();
 }
 async function joinSession(code){
   if(!shared.supabase){toast('Supabase is not configured yet.');return}
@@ -1850,6 +1951,7 @@ async function unlockControl(){
   if(await verifyController(shared.code,key)){
     shared.controlKey=key;shared.isController=true;
     localStorage.setItem(`dacc-control-key:${shared.code}`,key);
+    startTeamTimingRelay();
     toast('Race Control unlocked on this device.');render();
   }else toast('Race Control key not recognised.');
 }
@@ -1864,6 +1966,7 @@ async function unlockControlWithPrompt(){
   if(!await verifyController(shared.code,key)){toast('Race Control key not recognised.');return false;}
   shared.controlKey=key;shared.isController=true;
   localStorage.setItem(`dacc-control-key:${shared.code}`,key);
+  startTeamTimingRelay();
   toast('Race Control unlocked on this device.');render();
   return true;
 }
@@ -1961,9 +2064,9 @@ $('#validateScheduleBtn').onclick=()=>{readPlanningInputs();commitState();valida
 $('#exportPrepBtn').onclick=exportPrepWorkbook;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
 $('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==effectiveCurrentIndex();};
-$('#quickActualStartBtn').onclick=async()=>{if(await unlockControlWithPrompt())await editActualStart(Number($('#actualStartStintSelect').value));};
-$('#quickActualFinishBtn').onclick=async()=>{if(await unlockControlWithPrompt())await editActualFinish(Number($('#actualStartStintSelect').value));};
-$('#quickActualNowBtn').onclick=async()=>{if(await unlockControlWithPrompt())await setCurrentStartNow();};
+$('#quickActualStartBtn').onclick=()=>editActualStart(Number($('#actualStartStintSelect').value));
+$('#quickActualFinishBtn').onclick=()=>editActualFinish(Number($('#actualStartStintSelect').value));
+$('#quickActualNowBtn').onclick=setCurrentStartNow;
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverRemainingHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null,serverRemainingAnchorStintIndex:null,lastManualAdvanceUndo:null,autoAdvanceSuppressedIndex:null};commitState();render()}};
 $('#recalcBtn').onclick=()=>{
