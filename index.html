@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.2</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.3</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -290,7 +290,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.2 • team Actual Stint Timing • guided schedule-to-prep workflow • no database changes.</footer>
+  <footer>DACC Race Engineer V5.4.3 • qualifying and practice availability • team Actual Stint Timing • no database changes.</footer>
 </div>
 
 <script>
@@ -386,7 +386,7 @@ function migrateRuntime(){
   p.targetStintMinutes=Number(p.targetStintMinutes)||Math.max(30,Math.round(((state.stints?.[0]?.laps||52)*(state.event?.avgLapSec||90.8))/300)*5);
   p.maxDriveMinutes=Number(p.maxDriveMinutes)||Math.max(180,Math.ceil(((state.event?.raceHours||24)*60/Math.max(1,state.drivers?.length||1))*1.15/15)*15);p.minRestMinutes=Number.isFinite(+p.minRestMinutes)?+p.minRestMinutes:90;
   p.minUsefulStintMinutes=Number(p.minUsefulStintMinutes)||45;p.maxConsecutive=Number(p.maxConsecutive)||2;
-  if(typeof p.allowDouble!=='boolean')p.allowDouble=true;p.starter ||= '';p.finisher ||= '';p.availability ||= {};p.driverRules ||= {};p.source ||= null;
+  if(typeof p.allowDouble!=='boolean')p.allowDouble=true;p.starter ||= '';p.finisher ||= '';p.qualifyingDriver ||= '';p.availability ||= {};p.driverRules ||= {};p.source ||= null;
   state.drivers.forEach(d=>{p.driverRules[d.id] ||= {mustStart:false,mustFinish:false,cannotStart:false,cannotFinish:false,maxDriveMinutes:null,maxStints:null,maxConsecutive:null,minRestMinutes:null,earliest:'',latest:''};if(!p.availability[d.id]&&d.availability?.length)p.availability[d.id]=d.availability.map(([a,b])=>({start:timeToSec(a),end:timeToSec(b),status:'Y'}));});
   state.stints.forEach((s,i)=>{ if(typeof s.brakeChangeAfter!=='boolean') s.brakeChangeAfter=false;if(typeof s.locked!=='boolean')s.locked=false; if(!Number.isInteger(s.workbookStintNo)) s.workbookStintNo=i+1; s.prepOverrides ||= {}; });
   // PRE-RACE must always start from stint 1. Old test state from a previous build
@@ -930,11 +930,11 @@ function renderNextPrep(st){
 }
 function xmlChildren(node,name){return Array.from(node?.children||[]).filter(x=>x.localName===name)}
 function xmlFirst(node,name){return xmlChildren(node,name)[0]}
-function readXml(text){const doc=new DOMParser().parseFromString(text,'application/xml');if(doc.querySelector('parsererror'))throw new Error('Invalid Excel XML');return doc}
+function readXml(text){const doc=new DOMParser().parseFromString(String(text).replace(/^\uFEFF/,''),'application/xml');if(doc.querySelector('parsererror'))throw new Error('Invalid Excel XML');return doc}
 function cellColumn(ref){return String(ref||'').match(/^[A-Z]+/)?.[0]||''}
 let workbookCache=null;
 function columnNumber(col){let n=0;for(const c of String(col))n=n*26+c.charCodeAt(0)-64;return n}
-function excelTimeToSec(value){const s=String(value??'').trim();if(/^\d{1,2}:\d{2}(?::\d{2})?$/.test(s))return parseClock(s);const n=Number(s);if(Number.isFinite(n)&&n>=0&&n<1)return Math.round(n*86400);return null}
+function excelTimeToSec(value){const s=String(value??'').trim();if(!s)return null;if(/^\d{1,2}:\d{2}(?::\d{2})?$/.test(s))return parseClock(s);const n=Number(s);if(Number.isFinite(n)&&n>=0&&n<1)return Math.round(n*86400);return null}
 async function readWorkbook(file){
   if(!window.JSZip)throw new Error('Workbook reader is unavailable');
   const zip=await window.JSZip.loadAsync(await file.arrayBuffer());
@@ -1061,12 +1061,23 @@ async function importEventDrivers(){
   const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose the current DACC Motorsports.xlsx file first.');return}
   try{
     if(!workbookCache||workbookCache.fileName!==file.name)await loadWorkbookChoices();const selected=selectedSheetRows('#availabilitySheetSelect'),detected=discoverEventDrivers(selected.rows);
+    const settingsRows=workbookCache.sheets['Race Settings']||[];
+    const setting=name=>String(settingsRows.find(r=>String(r.cells.A||'').trim().toLowerCase()===name.toLowerCase())?.cells.B||'').trim();
+    const chosenDriver=name=>detected.find(d=>canonicalDriverId(d.id)===canonicalDriverId(name)||canonicalDriverId(d.label)===canonicalDriverId(name));
+    const starterName=setting('Starter / practice driver'),qualifyingName=setting('Qualifying driver');
+    const starter=starterName?chosenDriver(starterName):null,qualifying=qualifyingName?chosenDriver(qualifyingName):null;
+    if(starterName&&!starter)throw new Error('Starter / practice driver must appear on Driver Availability.');
+    if(qualifyingName&&!qualifying)throw new Error('Qualifying driver must appear on Driver Availability.');
     const currentIds=new Set(state.drivers.map(d=>d.id)),detectedIds=new Set(detected.map(d=>d.id)),added=detected.filter(d=>!currentIds.has(d.id)).map(d=>d.label),removed=state.drivers.filter(d=>!detectedIds.has(d.id)).map(d=>d.label);
     const lines=detected.map((d,i)=>`${i+1}. ${d.label}${d.rawName!==d.label?`  (${d.rawName})`:''}`),changes=[added.length?`Add: ${added.join(', ')}`:'No new drivers.',removed.length?`Remove from this event: ${removed.join(', ')}`:'No drivers removed.'];
-    const ok=await modalAsk({title:'Confirm event driver roster',text:`Detected on ${selected.name}:\n\n${lines.join('\n')}\n\n${changes.join('\n')}\n\nThis changes only this event roster. Driver preparation and historical incidents are retained.`,ok:'Import roster'});if(!ok)return;
+    const ok=await modalAsk({title:'Confirm event driver roster',text:`Detected on ${selected.name}:\n\n${lines.join('\n')}\n\n${changes.join('\n')}\n\nPractice / race starter: ${starter?.label||'open until the race schedule is generated'}\nQualifying: ${qualifying?.label||'free choice'}\n\nThis changes only this event roster. Driver preparation and historical incidents are retained.`,ok:'Import roster'});if(!ok)return;
     const oldById=new Map(state.drivers.map(d=>[d.id,d]));state.drivers=detected.map(d=>oldById.get(d.id)||{id:d.id,label:d.label,availability:[]});
     for(const d of state.drivers){state.planning.driverRules[d.id] ||= {mustStart:false,mustFinish:false,cannotStart:false,cannotFinish:false,maxDriveMinutes:null,maxStints:null,maxConsecutive:null,minRestMinutes:null,earliest:'',latest:''};state.planning.availability[d.id] ||= []}
-    if(!detectedIds.has(state.planning.starter))state.planning.starter='';if(!detectedIds.has(state.planning.finisher))state.planning.finisher='';
+    if(settingsRows.some(r=>String(r.cells.A||'').trim().toLowerCase()==='starter / practice driver'))state.planning.starter=starter?.id||'';
+    else if(!detectedIds.has(state.planning.starter))state.planning.starter='';
+    if(settingsRows.some(r=>String(r.cells.A||'').trim().toLowerCase()==='qualifying driver'))state.planning.qualifyingDriver=qualifying?.id||'';
+    else if(!detectedIds.has(state.planning.qualifyingDriver))state.planning.qualifyingDriver='';
+    if(!detectedIds.has(state.planning.finisher))state.planning.finisher='';
     const fallback=state.drivers[0].id;let reassigned=0;for(const stint of state.stints)if(!detectedIds.has(stint.driver)){stint.driver=fallback;stint.driverSetupOverride={};reassigned++}
     state.planning.rosterSource={name:file.name,sheet:selected.name,importedAt:new Date().toISOString(),count:state.drivers.length};addLog(`Event roster imported from ${selected.name}: ${state.drivers.map(d=>d.label).join(', ')}`,false);commitState();render();toast(`${state.drivers.length} event drivers imported.${reassigned?' Generate Schedule to replace reassigned draft rows.':''}`,6500);
   }catch(e){console.error(e);toast(`Driver import failed: ${e.message}`,7000)}
@@ -1097,7 +1108,7 @@ async function addAvailabilityWindow(id){if(!canEdit())return;const status=await
 function renderPlanningControls(){
   const p=state.planning,edit=canEdit();for(const [id,v] of [['planTargetMin',p.targetStintMinutes],['planMaxDriveMin',p.maxDriveMinutes],['planMinRestMin',p.minRestMinutes],['planMinStintMin',p.minUsefulStintMinutes],['planMaxConsecutive',p.maxConsecutive]])if(document.activeElement!==$('#'+id))$('#'+id).value=v;$('#planAllowDouble').value=p.allowDouble?'yes':'no';
   const options='<option value="">Open / automatic</option>'+state.drivers.map(d=>`<option value="${d.id}">${escapeHtml(d.label)}</option>`).join('');for(const id of ['planStarter','planFinisher']){$('#'+id).innerHTML=options}$('#planStarter').value=p.starter||'';$('#planFinisher').value=p.finisher||'';
-  $('#planSource').textContent=p.source?`${p.source.name} • ${p.source.sheet} • ${p.source.matched} drivers • ${p.source.blockMinutes} min blocks`:'Availability not imported; legacy driver windows will be used.';
+  $('#planSource').textContent=(p.source?`${p.source.name} • ${p.source.sheet} • ${p.source.matched} drivers • ${p.source.blockMinutes} min blocks`:'Availability not imported; legacy driver windows will be used.')+` • Practice: ${p.starter?label(p.starter):'race starter (stint 1)'} • Qualifying: ${p.qualifyingDriver?label(p.qualifyingDriver):'open choice'}`;
   $('#driverPlanning').innerHTML=state.drivers.map(d=>{const r=planningRule(d.id);return `<div class="driverplan" data-driver-plan="${d.id}"><h3>${escapeHtml(d.label)}</h3><div class="availabilityline">${escapeHtml(availabilityText(d.id))}</div><div class="toolbar"><button data-add-window="${d.id}">+ Availability window</button><button data-clear-windows="${d.id}">Clear windows</button></div><div class="sidegrid" style="margin-top:7px"><label><input type="checkbox" data-rule="mustStart" ${r.mustStart?'checked':''}> Must start</label><label><input type="checkbox" data-rule="mustFinish" ${r.mustFinish?'checked':''}> Must finish</label><label><input type="checkbox" data-rule="cannotStart" ${r.cannotStart?'checked':''}> Cannot start</label><label><input type="checkbox" data-rule="cannotFinish" ${r.cannotFinish?'checked':''}> Cannot finish</label><div class="field"><label>Max drive min (blank = default)</label><input type="number" data-rule="maxDriveMinutes" value="${r.maxDriveMinutes||''}" placeholder="${p.maxDriveMinutes}"></div><div class="field"><label>Max stints (blank = no limit)</label><input type="number" data-rule="maxStints" value="${r.maxStints||''}" placeholder="No limit"></div><div class="field"><label>Max consecutive (blank = default)</label><input type="number" data-rule="maxConsecutive" value="${r.maxConsecutive||''}" placeholder="${p.maxConsecutive}"></div><div class="field"><label>Min rest min (blank = default)</label><input type="number" data-rule="minRestMinutes" value="${r.minRestMinutes??''}" placeholder="${p.minRestMinutes}"></div><div class="field"><label>Earliest</label><input type="time" data-rule="earliest" value="${r.earliest||''}"></div><div class="field"><label>Latest</label><input type="time" data-rule="latest" value="${r.latest||''}"></div></div></div>`}).join('');
   $('#driverPlanning').querySelectorAll('[data-driver-plan]').forEach(card=>card.querySelectorAll('[data-rule]').forEach(input=>{input.disabled=!edit;input.onchange=()=>{const rule=planningRule(card.dataset.driverPlan),key=input.dataset.rule;rule[key]=input.type==='checkbox'?input.checked:(input.type==='number'?+input.value:input.value);commitState();validateAndRenderPlan()}}));
   $('#driverPlanning').querySelectorAll('[data-add-window]').forEach(b=>{b.disabled=!edit;b.onclick=()=>addAvailabilityWindow(b.dataset.addWindow)});$('#driverPlanning').querySelectorAll('[data-clear-windows]').forEach(b=>{b.disabled=!edit;b.onclick=()=>{state.planning.availability[b.dataset.clearWindows]=[];commitState();render()}});
@@ -1106,7 +1117,7 @@ function renderPlanningControls(){
 function validateSchedulePlan(){
   const rows=schedule(),errors=[],warnings=[],p=state.planning,stats={};state.drivers.forEach(d=>stats[d.id]={stints:0,laps:0,drive:0,longest:0,minRest:null,lastFinish:null,block:0,lastIndex:-2,consecutive:0});
   rows.forEach((r,i)=>{const s=stats[r.driver] ||= {stints:0,laps:0,drive:0,longest:0,minRest:null,lastFinish:null,block:0,lastIndex:-2,consecutive:0},rule=planningRule(r.driver);s.stints++;s.laps+=r.laps;s.drive+=r.drive;if(s.lastIndex===i-1){s.block+=r.drive+(i?state.event.pitLossSec:0);s.consecutive++}else{s.block=r.drive;s.consecutive=1;if(s.lastFinish!==null){const rest=r.startElapsed-s.lastFinish;s.minRest=s.minRest===null?rest:Math.min(s.minRest,rest);if(rest<(rule.minRestMinutes??p.minRestMinutes)*60)warnings.push(`${label(r.driver)} has only ${fmtSec(rest)} rest before stint ${i+1}.`)}}s.longest=Math.max(s.longest,s.block);s.lastFinish=r.finishElapsed;s.lastIndex=i;if(r.availabilityStatus==='N')errors.push(`${label(r.driver)} is unavailable for stint ${i+1}.`);if(r.availabilityStatus==='P')warnings.push(`${label(r.driver)} needs confirmation for stint ${i+1}.`);if(r.drive<p.minUsefulStintMinutes*60)warnings.push(`Stint ${i+1} is shorter than ${p.minUsefulStintMinutes} minutes.`);if(s.drive>(rule.maxDriveMinutes||p.maxDriveMinutes)*60)errors.push(`${label(r.driver)} exceeds maximum driving time.`);if(s.stints>(rule.maxStints||99))errors.push(`${label(r.driver)} exceeds maximum stints.`);if(s.consecutive>(rule.maxConsecutive||p.maxConsecutive))errors.push(`${label(r.driver)} exceeds maximum consecutive stints.`);});
-  const first=rows[0],last=rows.at(-1);if(first){const rr=planningRule(first.driver);if(rr.cannotStart)errors.push(`${label(first.driver)} cannot start.`)}if(last){const rr=planningRule(last.driver);if(rr.cannotFinish)errors.push(`${label(last.driver)} cannot finish.`);if(last.finishElapsed<state.event.raceHours*3600)errors.push(`Race has ${fmtSec(state.event.raceHours*3600-last.finishElapsed)} uncovered.`)}for(const d of state.drivers){const r=planningRule(d.id);if(r.mustStart&&first?.driver!==d.id)errors.push(`${d.label} must start.`);if(r.mustFinish&&last?.driver!==d.id)errors.push(`${d.label} must finish.`)}
+  const first=rows[0],last=rows.at(-1);if(first){const rr=planningRule(first.driver);if(rr.cannotStart)errors.push(`${label(first.driver)} cannot start.`);if(p.starter&&first.driver!==p.starter)errors.push(`Race starter differs from the selected practice driver (${label(p.starter)}).`)}if(last){const rr=planningRule(last.driver);if(rr.cannotFinish)errors.push(`${label(last.driver)} cannot finish.`);if(last.finishElapsed<state.event.raceHours*3600)errors.push(`Race has ${fmtSec(state.event.raceHours*3600-last.finishElapsed)} uncovered.`)}for(const d of state.drivers){const r=planningRule(d.id);if(r.mustStart&&first?.driver!==d.id)errors.push(`${d.label} must start.`);if(r.mustFinish&&last?.driver!==d.id)errors.push(`${d.label} must finish.`)}
   return {errors:[...new Set(errors)],warnings:[...new Set(warnings)],stats};
 }
 function validateAndRenderPlan(){
