@@ -269,7 +269,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
         <h2>Incident Log</h2>
         <div class="cardbody">
           <div class="sidegrid">
-            <div class="field"><label>Car #</label><input id="incidentCar" type="text" inputmode="numeric" placeholder="48"/></div>
+            <div class="field"><label>Car #</label><input id="incidentCar" type="text" inputmode="numeric" placeholder="Car number"/></div>
             <div class="field"><label>Lap</label><input id="incidentLap" type="number" min="1" step="1" placeholder="e.g. 214"/></div>
             <div class="field"><label>Driver</label><select id="incidentDriver"></select></div>
             <div class="field" style="grid-column:1/-1"><label>Incident / note</label><input id="incidentText" type="text" placeholder="e.g. Contact T1, light front damage, no pit required"/></div>
@@ -1031,6 +1031,8 @@ async function startNewEventFromRacePack(){
     state.planning.source={name:file.name,sheet:'Driver Availability',importedAt:new Date().toISOString(),matched:imported.matched,blockMinutes:Math.round(imported.blockSec/60)};
     state.planning.rosterSource={name:file.name,sheet:'Driver Availability',importedAt:new Date().toISOString(),count:detected.length};
     localStorage.removeItem('dacc-session-code');
+    localStorage.setItem('dacc-incident-car',carNumber);
+    $('#incidentCar').value=carNumber;
     localCalc={fuelPerLap:0,avgLapSec,tankLitres:0,fuelMarginLaps:1};localStorage.setItem('dacc-fuel-calc',JSON.stringify(localCalc));initCalcInputs();
     commitState();render();toast('Round '+round+' ready: settings and '+detected.length+' drivers imported from Excel. Generate Schedule.',7000);
   }catch(err){state=previous;console.error(err);render();toast('New event setup failed: '+err.message,8000)}
