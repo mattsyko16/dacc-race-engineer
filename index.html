@@ -1000,11 +1000,11 @@ async function startNewEventFromRacePack(){
     const raceHours=packNumber(get('Race duration (hours)'),'Race duration',1,48);
     const avgLapSec=packNumber(get('Expected lap time (seconds)'),'Expected lap time',20,600);
     const pitLossSec=packNumber(get('Pit / changeover time (seconds)'),'Pit / changeover time',0,3600);
-    const targetStintMinutes=packNumber(get('Target stint duration (minutes)'),'Target stint duration',10,240);
-    const maxDriveMinutes=packNumber(get('Maximum drive time per driver (minutes)'),'Maximum drive time',10,raceHours*60);
-    const minRestMinutes=packNumber(get('Minimum rest (minutes)'),'Minimum rest',0,raceHours*60);
-    const maxConsecutive=packNumber(get('Maximum consecutive stints'),'Maximum consecutive stints',1,12);
-    const minUsefulStintMinutes=packNumber(get('Minimum useful stint duration (minutes)'),'Minimum useful stint duration',10,240);
+    const targetStintMinutes=packNumber(get('Target stint duration (minutes)'),'Target stint duration',10,48*60);
+    const maxDriveMinutes=packNumber(get('Maximum drive time per driver (minutes)'),'Maximum drive time',10,48*60);
+    const minRestMinutes=packNumber(get('Minimum rest (minutes)'),'Minimum rest',0,48*60);
+    const maxConsecutive=packNumber(get('Maximum consecutive stints'),'Maximum consecutive stints',1,48);
+    const minUsefulStintMinutes=packNumber(get('Minimum useful stint duration (minutes)'),'Minimum useful stint duration',10,48*60);
     const irlStart=packTime(get('IRL race start'),'IRL race start'),serverStart=packTime(get('Server start time'),'Server start time');
     const carNumber=String(get('Car number')||'').trim();
     if(!carNumber)throw new Error('Enter Car number in Race Settings.');
