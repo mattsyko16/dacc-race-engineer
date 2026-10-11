@@ -76,7 +76,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <script src="./socket.io.js"></script>
 <div class="shell">
   <div class="topbar">
-    <div class="brand"><div class="logo">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
+    <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
     <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.4</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
@@ -1006,6 +1006,8 @@ async function startNewEventFromRacePack(){
     const maxConsecutive=packNumber(get('Maximum consecutive stints'),'Maximum consecutive stints',1,12);
     const minUsefulStintMinutes=packNumber(get('Minimum useful stint duration (minutes)'),'Minimum useful stint duration',10,240);
     const irlStart=packTime(get('IRL race start'),'IRL race start'),serverStart=packTime(get('Server start time'),'Server start time');
+    const carNumber=String(get('Car number')||'').trim();
+    if(!carNumber)throw new Error('Enter Car number in Race Settings.');
     const detected=discoverEventDrivers(availabilitySheet);
     const chosen=raw=>detected.find(d=>canonicalDriverId(d.id)===canonicalDriverId(raw)||canonicalDriverId(d.label)===canonicalDriverId(raw));
     const starterName=get('Starter / practice driver'),qualifyingName=get('Qualifying driver');
@@ -1016,11 +1018,11 @@ async function startNewEventFromRacePack(){
     if(!ok)return;
     localStorage.setItem('dacc-event-backup:'+Date.now(),JSON.stringify(previous));
     state={
-      event:{name:'Round '+round+' — '+name,round:String(round),track,raceDate:date,eventKey:packEventKey(round,track,date),irlStart,serverStart,raceHours,avgLapSec,pitLossSec,carNumber:get('Car number')||'48',fuelPerLap:0,tankLitres:0,fuelMarginLaps:1,qualifyingDate:get('Qualifying date')?packDate(get('Qualifying date')):'',qualifyingStart:get('Qualifying start')?packTime(get('Qualifying start'),'Qualifying start'):'',qualifyingEnd:get('Qualifying end')?packTime(get('Qualifying end'),'Qualifying end'):'',practiceStart:get('Practice start')?packTime(get('Practice start'),'Practice start'):'',practiceEnd:get('Practice end')?packTime(get('Practice end'),'Practice end'):''},
+      event:{name:'Round '+round+' — '+name,round:String(round),track,raceDate:date,eventKey:packEventKey(round,track,date),irlStart,serverStart,raceHours,avgLapSec,pitLossSec,carNumber,fuelPerLap:0,tankLitres:0,fuelMarginLaps:1,qualifyingDate:get('Qualifying date')?packDate(get('Qualifying date')):'',qualifyingStart:get('Qualifying start')?packTime(get('Qualifying start'),'Qualifying start'):'',qualifyingEnd:get('Qualifying end')?packTime(get('Qualifying end'),'Qualifying end'):'',practiceStart:get('Practice start')?packTime(get('Practice start'),'Practice start'):'',practiceEnd:get('Practice end')?packTime(get('Practice end'),'Practice end'):''},
       drivers:detected.map(d=>({id:d.id,label:d.label,availability:[]})),
       stints:[{driver:starter?.id||detected[0].id,laps:Math.max(1,Math.round(targetStintMinutes*60/avgLapSec))}],
       prep:{driverBaselines:{},source:null},
-      planning:{targetStintMinutes,maxDriveMinutes,minRestMinutes,minUsefulStintMinutes,maxConsecutive,allowDouble:/^(yes|y|true|1)$/i.test(get('Double stints allowed')),starter:starter?.id||'',finisher:'',qualifyingDriver:qualifying?.id||'',availability:{},driverRules:{},source:null},
+      planning:{settingsSource:{name:file.name,sheet:'Race Settings',importedAt:new Date().toISOString()},targetStintMinutes,maxDriveMinutes,minRestMinutes,minUsefulStintMinutes,maxConsecutive,allowDouble:/^(yes|y|true|1)$/i.test(get('Double stints allowed')),starter:starter?.id||'',finisher:'',qualifyingDriver:qualifying?.id||'',availability:{},driverRules:{},source:null},
       runtime:{status:'PRE-RACE'}
     };
     migrateRuntime();
@@ -1030,7 +1032,7 @@ async function startNewEventFromRacePack(){
     state.planning.rosterSource={name:file.name,sheet:'Driver Availability',importedAt:new Date().toISOString(),count:detected.length};
     localStorage.removeItem('dacc-session-code');
     localCalc={fuelPerLap:0,avgLapSec,tankLitres:0,fuelMarginLaps:1};localStorage.setItem('dacc-fuel-calc',JSON.stringify(localCalc));initCalcInputs();
-    commitState();render();toast('Round '+round+' ready: '+detected.length+' drivers imported. Set constraints, then Generate Schedule.',7000);
+    commitState();render();toast('Round '+round+' ready: settings and '+detected.length+' drivers imported from Excel. Generate Schedule.',7000);
   }catch(err){state=previous;console.error(err);render();toast('New event setup failed: '+err.message,8000)}
 }
 
@@ -1206,7 +1208,7 @@ function assignDriversForSlots(slots,prefix,allowPossible){
 }
 function generateAutomaticSchedule(futureOnly=false){
   if(!canEdit())return;readPlanningInputs();const e=state.event,p=state.planning,race=e.raceHours*3600,pit=e.pitLossSec,target=Math.max(p.targetStintMinutes,p.minUsefulStintMinutes)*60;let count=Math.max(1,Math.ceil((race+pit)/(target+pit))),maxUsefulCount=Math.max(1,Math.floor((race+pit)/(p.minUsefulStintMinutes*60+pit)));count=Math.min(count,maxUsefulCount);let drive=(race-(count-1)*pit)/count;const prefixCount=futureOnly&&state.runtime.status!=='PRE-RACE'?state.runtime.currentIndex+1:0,prefix=state.stints.slice(0,prefixCount),lastLocked=state.stints.reduce((m,s,i)=>s.locked?Math.max(m,i):m,-1);count=Math.max(count,prefixCount+1,lastLocked+1);const slots=[];let elapsed=0,base=state.runtime.status==='PRE-RACE'?timeToSec(e.irlStart):actualRaceStartClockSec();for(let i=0;i<count;i++){if(i<prefixCount){const row=schedule()[i];slots.push({drive:row.drive,startClock:row.start,finishClock:row.finish});elapsed=row.finishElapsed+pit+(row.brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0)}else{const remainingCount=count-i,remaining=Math.max(drive,race-elapsed-(remainingCount-1)*pit),d=Math.max(p.minUsefulStintMinutes*60,remaining/remainingCount),laps=Math.max(1,i===count-1?Math.ceil(d/e.avgLapSec):Math.round(d/e.avgLapSec)),actualDrive=laps*e.avgLapSec;slots.push({drive:actualDrive,laps,startClock:base+elapsed,finishClock:base+elapsed+actualDrive});elapsed+=actualDrive+(i<count-1?pit:0)}}
-  let drivers=assignDriversForSlots(slots,prefix,false),usedPossible=false;if(!drivers){drivers=assignDriversForSlots(slots,prefix,true);usedPossible=!!drivers}if(!drivers){toast(`No complete schedule fits: max ${p.maxDriveMinutes} min per driver and minimum ${p.minUsefulStintMinutes} min per stint. Review availability or these limits.`,9000);validateAndRenderPlan();return}
+  let drivers=assignDriversForSlots(slots,prefix,false),usedPossible=false;if(!drivers){drivers=assignDriversForSlots(slots,prefix,true);usedPossible=!!drivers}if(!drivers){toast(`No complete schedule fits the Excel planner: max ${p.maxDriveMinutes} min per driver, minimum ${p.minUsefulStintMinutes} min per stint, and current availability. Update Race Settings or availability in Excel, then reload the Race Pack.`,12000);validateAndRenderPlan();return}
   const old=state.stints;state.stints=slots.map((slot,i)=>i<prefixCount||old[i]?.locked?old[i]:{driver:drivers[i],laps:slot.laps,brakeChangeAfter:old[i]?.brakeChangeAfter||false,locked:false,workbookStintNo:i+1,prepOverrides:old[i]?.prepOverrides||{},driverSetupOverride:{}});addLog(`${futureOnly?'Future schedule replanned':'Schedule generated'}${usedPossible?' using provisional availability':''}`,false);commitState();render();toast(usedPossible?'Schedule created; provisional P stints need confirmation.':'Schedule created from confirmed availability.')
 }
 
@@ -1214,6 +1216,7 @@ function render(){
   const sch=schedule(),e=state.event,elapsed=elapsedRaceSec(),cur=state.runtime.status==='PRE-RACE'?0:effectiveCurrentIndex(sch,elapsed);
   const phase=livePhase(sch),edit=canEdit();
   $('#eventTitle').textContent=`${e.name} • ${e.track}`;
+  $('#eventCarBadge').textContent=String(e.carNumber||cfg.simbotCarNumber||'—');
   if(document.activeElement!==$('#irlStart')) $('#irlStart').value=e.irlStart;
   if(document.activeElement!==$('#serverStart')) $('#serverStart').value=e.serverStart;
   if(document.activeElement!==$('#pitLossSec')) $('#pitLossSec').value=e.pitLossSec;
@@ -1292,7 +1295,7 @@ function render(){
   renderNextPrep(state.stints[cur+1]);
   const source=state.prep?.source;
   $('#prepMeta').textContent=source?`Published ${source.name} • ${source.sheet} • ${source.matched} stints • ${new Date(source.refreshedAt).toLocaleString()}`:'No workbook prep published.';
-  const rosterSource=state.planning?.rosterSource;$('#rosterMeta').textContent=rosterSource?`Event roster: ${state.drivers.map(d=>d.label).join(', ')} • ${rosterSource.sheet} • ${new Date(rosterSource.importedAt).toLocaleString()}`:`Current event drivers: ${state.drivers.map(d=>d.label).join(', ')}. Import remains review-only until confirmed.`;
+  const rosterSource=state.planning?.rosterSource,settingsSource=state.planning?.settingsSource;$('#rosterMeta').textContent=rosterSource?`Event roster: ${state.drivers.map(d=>d.label).join(', ')} • ${rosterSource.sheet} • ${new Date(rosterSource.importedAt).toLocaleString()}${settingsSource?' • Planning limits from '+settingsSource.sheet:''}`:`Current event drivers: ${state.drivers.map(d=>d.label).join(', ')}. Import remains review-only until confirmed.`;
   $('#refreshPrepBtn').disabled=!edit;
 
   const actualSelect=$('#actualStartStintSelect'),selectedActual=actualSelect.dataset.ready==='1'?Number(actualSelect.value):cur;
@@ -1658,7 +1661,7 @@ async function serverResync(){
 async function startRace(auto=false){
   if(!canEdit()||state.runtime.status!=='PRE-RACE')return;
   if(!auto){
-    const ok=await modalAsk({title:'Start race?',text:'Start the 24 hour race clock now? This records the actual IRL start time for everyone.',ok:'START RACE'});
+    const ok=await modalAsk({title:'Start race?',text:`Start the ${state.event.raceHours} hour race clock now? This records the actual IRL start time for everyone.`,ok:'START RACE'});
     if(!ok)return;
   }
   state.runtime.status='LIVE';state.runtime.currentIndex=0;state.runtime.startedAtMs=Date.now();
@@ -2012,8 +2015,9 @@ function randomKey(len=14){
 }
 async function createSharedSession(){
   if(!shared.supabase){toast('Supabase is not configured yet.');return}
-  const eventKey=state.event?.eventKey||cfg.eventKey||'dacc-race';
-  if(state.event?.eventKey&&validateSchedulePlan().errors.length){toast('Generate and validate the full schedule before creating its shared race.',7000);return}
+  const eventKey=state.event?.eventKey;
+  if(!eventKey){toast('Load a Race Pack before creating a shared race.');return}
+  if(validateSchedulePlan().errors.length){toast('Generate and validate the full schedule before creating its shared race.',7000);return}
   const proceed=await modalAsk({title:'Create shared race?',text:`${state.event.name} • ${state.event.track} • ${state.stints.length} stints.\n\nThis publishes the current local plan as a new shared session.`,ok:'Create shared race'});
   if(!proceed)return;
   const key=randomKey(14);
