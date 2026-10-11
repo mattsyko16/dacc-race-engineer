@@ -1016,7 +1016,7 @@ async function startNewEventFromRacePack(){
     if(!ok)return;
     localStorage.setItem('dacc-event-backup:'+Date.now(),JSON.stringify(previous));
     state={
-      event:{name:'Round '+round+' — '+name,round:String(round),track,raceDate:date,eventKey:packEventKey(round,track,date),irlStart,serverStart,raceHours,avgLapSec,pitLossSec,carNumber:get('Car number')||'48',fuelPerLap:0,tankLitres:0,fuelMarginLaps:1,qualifyingDate:get('Qualifying date'),qualifyingStart:get('Qualifying start'),qualifyingEnd:get('Qualifying end'),practiceStart:get('Practice start'),practiceEnd:get('Practice end')},
+      event:{name:'Round '+round+' — '+name,round:String(round),track,raceDate:date,eventKey:packEventKey(round,track,date),irlStart,serverStart,raceHours,avgLapSec,pitLossSec,carNumber:get('Car number')||'48',fuelPerLap:0,tankLitres:0,fuelMarginLaps:1,qualifyingDate:get('Qualifying date')?packDate(get('Qualifying date')):'',qualifyingStart:get('Qualifying start')?packTime(get('Qualifying start'),'Qualifying start'):'',qualifyingEnd:get('Qualifying end')?packTime(get('Qualifying end'),'Qualifying end'):'',practiceStart:get('Practice start')?packTime(get('Practice start'),'Practice start'):'',practiceEnd:get('Practice end')?packTime(get('Practice end'),'Practice end'):''},
       drivers:detected.map(d=>({id:d.id,label:d.label,availability:[]})),
       stints:[{driver:starter?.id||detected[0].id,laps:Math.max(1,Math.round(targetStintMinutes*60/avgLapSec))}],
       prep:{driverBaselines:{},source:null},
