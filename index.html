@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.7</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.8</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -156,10 +156,8 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="regenerateScheduleBtn">Regenerate</button>
             <button id="replanFutureBtn">Replan Future Stints</button>
             <button id="validateScheduleBtn">Validate</button>
-            <button class="good" id="exportPrepBtn">Update Master Prep Sheet</button>
           </div>
-          <div class="sub">Workflow: generate and agree the stint schedule → Update Master Prep Sheet → select the Race Pack in your synced OneDrive folder. The app saves the new stint order in that file and downloads a safety backup first. Drivers complete the same master workbook, then Race Control reads it and Publishes Prep Data.</div>
-          <div class="prepmeta" id="prepExportMeta">Master Race Pack not updated yet. Use Chrome or Edge on the laptop to choose the synced OneDrive file.</div>
+          <div class="sub">After generating the schedule, use Update Master Prep Sheet in Race Pack / Excel below. Drivers then complete that same OneDrive workbook.</div>
           <div class="planstatus"><span id="planStatus" class="statuspill">Not checked</span><span class="sub" id="planSource">Availability not imported.</span></div>
           <div id="planMessages" class="planmessages"></div>
           <div id="constraintGuide" class="constraintguide"></div>
@@ -216,10 +214,11 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       <section class="card" style="margin-top:12px">
         <h2>Race Pack / Excel</h2>
         <div class="cardbody">
-          <div class="sub">For a new round, leave the previous shared session, choose the Race Pack and press Start New Event. This loads Race Settings, drivers and availability into a fresh local plan. Generate and review the schedule, then create its shared race. Update Master Prep Sheet saves the schedule into the same synced OneDrive workbook on your laptop. No OneDrive credentials are used.</div>
+          <div class="sub">For a new round, choose the Race Pack and press Start New Event. Generate and review the schedule, then press Update Master Prep Sheet below. In the file picker choose the same Race Pack in your synced OneDrive folder to grant write access. A safety backup downloads before the master is updated.</div>
           <div class="toolbar"><input id="prepWorkbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="readWorkbookBtn">Read workbook</button></div>
           <div class="sidegrid"><div class="field"><label>Stints / prep sheet</label><select id="prepSheetSelect"></select></div><div class="field"><label>Availability sheet</label><select id="availabilitySheetSelect"></select></div></div>
-          <div class="toolbar"><button class="primary" id="newEventBtn">Start New Event from Race Pack</button><button id="importRosterBtn">Import Event Drivers</button><button id="importAvailabilityBtn">Import N / P / Y Availability</button><button id="refreshPrepBtn">Publish Prep Data</button></div>
+          <div class="toolbar"><button class="primary" id="newEventBtn">Start New Event from Race Pack</button><button id="importRosterBtn">Import Event Drivers</button><button id="importAvailabilityBtn">Import N / P / Y Availability</button><button class="good" id="exportPrepBtn">Update Master Prep Sheet</button><button id="refreshPrepBtn">Publish Prep Data</button></div>
+          <div class="prepmeta" id="prepExportMeta">Master workbook: press Update Master Prep Sheet to write the current schedule. Select the synced OneDrive file in the picker.</div>
           <div class="prepmeta" id="rosterMeta">Event drivers remain unchanged until the detected roster is reviewed and confirmed.</div>
           <div class="prepmeta" id="prepMeta">No workbook prep published.</div>
         </div>
