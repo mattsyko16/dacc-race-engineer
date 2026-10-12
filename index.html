@@ -1082,7 +1082,7 @@ async function buildMasterPrepWorkbook(file,sourceBook){
       if(canonicalDriverId(old.cells.C)!==canonicalDriverId(outputRows[index][2]) && state.prep?.source?.name!==file.name)
         throw new Error(`Stint ${index+1} has prep for a different driver in the master. Publish the existing prep first, then update the schedule.`);
       if(canonicalDriverId(old.cells.C)===canonicalDriverId(outputRows[index][2]))
-        for(let column=11;column<30;column++)if(!String(outputRows[index][column]??'').trim()&&String(old.cells[excelColumnName(column)]||'').trim())outputRows[index][column]=old.cells[excelColumnName(column)];
+        for(let column=11;column<30;column++)if(String(old.cells[excelColumnName(column)]||'').trim()&&(state.prep?.source?.name!==file.name||!String(outputRows[index][column]??'').trim()))outputRows[index][column]=old.cells[excelColumnName(column)];
     }
     const zip=await window.JSZip.loadAsync(await file.arrayBuffer());
     const workbookPart=zip.file('xl/workbook.xml'),relationshipsPart=zip.file('xl/_rels/workbook.xml.rels');
