@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.6</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.7</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -156,10 +156,10 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="regenerateScheduleBtn">Regenerate</button>
             <button id="replanFutureBtn">Replan Future Stints</button>
             <button id="validateScheduleBtn">Validate</button>
-            <button class="good" id="exportPrepBtn">Export Prep Workbook</button>
+            <button class="good" id="exportPrepBtn">Update Master Prep Sheet</button>
           </div>
-          <div class="sub">Workflow: generate and agree the stint schedule → select the original Race Pack under Race Pack / Excel → Export Prep Workbook. Open the downloaded Race Pack copy, complete its Stints &amp; Prep tab, then select that completed copy and Publish Prep Data.</div>
-          <div class="prepmeta" id="prepExportMeta">No Race Pack copy exported yet. Export downloads a file; it does not update OneDrive automatically.</div>
+          <div class="sub">Workflow: generate and agree the stint schedule → Update Master Prep Sheet → select the Race Pack in your synced OneDrive folder. The app saves the new stint order in that file and downloads a safety backup first. Drivers complete the same master workbook, then Race Control reads it and Publishes Prep Data.</div>
+          <div class="prepmeta" id="prepExportMeta">Master Race Pack not updated yet. Use Chrome or Edge on the laptop to choose the synced OneDrive file.</div>
           <div class="planstatus"><span id="planStatus" class="statuspill">Not checked</span><span class="sub" id="planSource">Availability not imported.</span></div>
           <div id="planMessages" class="planmessages"></div>
           <div id="constraintGuide" class="constraintguide"></div>
@@ -216,7 +216,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       <section class="card" style="margin-top:12px">
         <h2>Race Pack / Excel</h2>
         <div class="cardbody">
-          <div class="sub">For a new round, leave the previous shared session, choose the Race Pack and press Start New Event. This loads Race Settings, drivers and availability into a fresh local plan. Generate and review the schedule, then create its shared race. Export Prep Workbook downloads a copy of the selected Race Pack with the Stints &amp; Prep tab filled in. No OneDrive credentials are used.</div>
+          <div class="sub">For a new round, leave the previous shared session, choose the Race Pack and press Start New Event. This loads Race Settings, drivers and availability into a fresh local plan. Generate and review the schedule, then create its shared race. Update Master Prep Sheet saves the schedule into the same synced OneDrive workbook on your laptop. No OneDrive credentials are used.</div>
           <div class="toolbar"><input id="prepWorkbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="readWorkbookBtn">Read workbook</button></div>
           <div class="sidegrid"><div class="field"><label>Stints / prep sheet</label><select id="prepSheetSelect"></select></div><div class="field"><label>Availability sheet</label><select id="availabilitySheetSelect"></select></div></div>
           <div class="toolbar"><button class="primary" id="newEventBtn">Start New Event from Race Pack</button><button id="importRosterBtn">Import Event Drivers</button><button id="importAvailabilityBtn">Import N / P / Y Availability</button><button id="refreshPrepBtn">Publish Prep Data</button></div>
@@ -995,7 +995,7 @@ async function startNewEventFromRacePack(){
     const book=await loadWorkbookChoices();
     if(!book)throw new Error('Read the Race Pack workbook first.');
     const settings=workbookCache.sheets['Race Settings'],availabilitySheet=workbookCache.sheets['Driver Availability'];
-    if(!settings||packValue(settings,'Format marker')!=='DACC_RACE_PACK_V1')throw new Error('Race Settings with DACC_RACE_PACK_V1 marker is required.');
+    if(!settings||!/^DACC_RACE_PACK_V\d+$/i.test(packValue(settings,'Format marker')))throw new Error('A DACC Race Pack Race Settings sheet is required.');
     if(!availabilitySheet)throw new Error('Driver Availability sheet is missing.');
     const get=name=>packValue(settings,name);
     const round=get('Round'),track=get('Track'),name=get('Event name'),date=packDate(get('Race date'));
@@ -1067,18 +1067,23 @@ function xlsxCell(ref,value,style=2){
 }
 function xlsxRow(number,values,styles=[]){return `<row r="${number}">${values.map((value,index)=>xlsxCell(`${excelColumnName(index)}${number}`,value,styles[index]??2)).join('')}</row>`}
 function safeFilePart(value){return String(value||'Race').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,100)||'Race'}
-async function exportPrepWorkbook(){
-  if(!state.stints.length){toast('Generate or enter a stint schedule first.');return}
-  const file=$('#prepWorkbook').files?.[0];
-  if(!file){toast('Choose the original Race Pack under Race Pack / Excel first.');return}
-  if(!window.JSZip){toast('Workbook export is unavailable.');return}
-  const button=$('#exportPrepBtn');button.disabled=true;
-  try{
+async function buildMasterPrepWorkbook(file,sourceBook){
     const rows=schedule(),headers=['Order','Stint','Driver','Target laps','Projected IRL start','Projected IRL finish','Projected server start','Projected server finish','Driving time','Preceding pit / changeover','Availability','Server temp','Air temp','Track temp','Load note','Pit strategy / load profile','Fuel (L)','Fuel / lap (L)','Brake change after','Front ducts','Rear ducts','BB','TC','TC2','ABS','LF PSI','RF PSI','LR PSI','RR PSI','Notes'];
     const outputRows=rows.map((row,index)=>{
       const stint=state.stints[index],prep=prepForStint(stint),preceding=index?Number(state.event.pitLossSec||0)+(state.stints[index-1].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0):0;
       return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',prep.pitStrategy||'',prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
     });
+    const oldPrep=sourceBook.sheets['Stints & Prep']||[];
+    for(let index=0;index<outputRows.length;index++){
+      const old=oldPrep.find(row=>String(row.cells.B||'').trim().toLowerCase()===`stint ${index+1}`);
+      if(!old)continue;
+      const sourceValues=Array.from({length:19},(_,offset)=>String(old.cells[excelColumnName(offset+11)]||'').trim());
+      if(!sourceValues.some(Boolean))continue;
+      if(canonicalDriverId(old.cells.C)!==canonicalDriverId(outputRows[index][2]) && state.prep?.source?.name!==file.name)
+        throw new Error(`Stint ${index+1} has prep for a different driver in the master. Publish the existing prep first, then update the schedule.`);
+      if(canonicalDriverId(old.cells.C)===canonicalDriverId(outputRows[index][2]))
+        for(let column=11;column<30;column++)if(!String(outputRows[index][column]??'').trim()&&String(old.cells[excelColumnName(column)]||'').trim())outputRows[index][column]=old.cells[excelColumnName(column)];
+    }
     const zip=await window.JSZip.loadAsync(await file.arrayBuffer());
     const workbookPart=zip.file('xl/workbook.xml'),relationshipsPart=zip.file('xl/_rels/workbook.xml.rels');
     if(!workbookPart||!relationshipsPart)throw new Error('The selected file is not a valid Race Pack workbook.');
@@ -1104,7 +1109,7 @@ async function exportPrepWorkbook(){
     const newRows=[
       xlsxRow(1,['DACC_RACE_ENGINEER_PREP_V1'],[styleAt('A3',0)]),
       xlsxRow(2,['Stints and Preparation — generated by Race Engineer'],[styleAt('A2',0)]),
-      xlsxRow(3,[`Downloaded copy of ${file.name} • ${new Date().toLocaleString()} • Complete preparation cells, then choose this downloaded file in Race Engineer and Publish Prep Data.`],[styleAt('A3',0)]),
+      xlsxRow(3,[`Master ${file.name} updated • ${new Date().toLocaleString()} • Complete preparation cells in this master, then read this workbook again in Race Engineer and Publish Prep Data.`],[styleAt('A3',0)]),
       xlsxRow(6,headers,headerStyles),
       ...outputRows.map((values,index)=>xlsxRow(index+7,values,bodyStyles))
     ].join('');
@@ -1123,13 +1128,54 @@ async function exportPrepWorkbook(){
     }
     zip.file(sheetPath,new XMLSerializer().serializeToString(worksheet));
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const name=`${safeFilePart(file.name.replace(/\.xlsx$/i,''))}_With_Prep_${new Date().toISOString().slice(0,10)}.xlsx`;
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=name;document.body.appendChild(link);link.click();
-    setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove()},1000);
-    $('#prepExportMeta').textContent=`Downloaded ${name} with ${outputRows.length} stints. Open it from browser Downloads. The selected OneDrive original and published prep are unchanged.`;
-    toast(`Race Pack copy downloaded with ${outputRows.length} stints. Open ${name} from Downloads.`,7000);
-  }catch(error){console.error(error);toast(`Prep export failed: ${error.message}`,8000)}
-  finally{button.disabled=!state.stints.length}
+    return {blob,stintCount:outputRows.length};
+}
+async function updateMasterPrepWorkbook(){
+  if(!canEdit()){toast('Race Control access required to update the master workbook.');return}
+  if(!state.stints.length){toast('Generate or enter a stint schedule first.');return}
+  if(!window.JSZip){toast('Workbook update is unavailable.');return}
+  if(typeof window.showOpenFilePicker!=='function'){
+    toast('Updating the master file requires Chrome or Edge on the laptop. Open the GitHub Pages app there.',8000);return
+  }
+  const button=$('#exportPrepBtn');button.disabled=true;
+  let wrote=false;
+  try{
+    const [handle]=await window.showOpenFilePicker({multiple:false,types:[{description:'Excel Race Pack',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});
+    if(!handle) return;
+    const file=await handle.getFile();
+    const sourceBook=await readWorkbook(file);
+    const settings=sourceBook.sheets['Race Settings'];
+    if(!settings||!/^DACC_RACE_PACK_V\d+$/i.test(packValue(settings,'Format marker')))
+      throw new Error('Select the DACC Race Pack master with its Race Settings sheet.');
+    if(!sourceBook.sheets['Stints & Prep'])throw new Error('The master needs a Stints & Prep tab.');
+    const round=packValue(settings,'Round'),track=packValue(settings,'Track'),date=packDate(packValue(settings,'Race date'));
+    if(state.event.round&&String(state.event.round)!==String(round))throw new Error(`Selected Round ${round} does not match the app's Round ${state.event.round}. Start the correct event first.`);
+    if(state.event.track&&canonicalDriverId(state.event.track)!==canonicalDriverId(track))throw new Error(`Selected ${track} Race Pack does not match the app's ${state.event.track} event.`);
+    if(state.event.raceDate&&state.event.raceDate!==date)throw new Error(`Selected Race Pack date ${date} does not match the app's ${state.event.raceDate}.`);
+    const {blob,stintCount}=await buildMasterPrepWorkbook(file,sourceBook);
+    const latest=await handle.getFile();
+    if(latest.lastModified!==file.lastModified||latest.size!==file.size)throw new Error('The Race Pack changed while preparing the schedule. Read it again and retry.');
+    const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+    const backupName=`${safeFilePart(file.name.replace(/\.xlsx$/i,''))}_backup_before_prep_${stamp}.xlsx`;
+    const backup=document.createElement('a');backup.href=URL.createObjectURL(file);backup.download=backupName;document.body.appendChild(backup);backup.click();
+    setTimeout(()=>{URL.revokeObjectURL(backup.href);backup.remove()},1000);
+    const writable=await handle.createWritable();
+    try{await writable.write(blob);await writable.close();wrote=true}
+    catch(error){try{await writable.abort()}catch{}throw error}
+    const updated=await handle.getFile(),verified=await readWorkbook(updated),prep=verified.sheets['Stints & Prep']||[];
+    const numbered=prep.filter(row=>/^Stint\s+\d+$/i.test(row.cells.B||''));
+    if(numbered.length!==stintCount||!prep.some(row=>Object.values(row.cells).includes('DACC_RACE_ENGINEER_PREP_V1')))
+      throw new Error('The file was written, but the stint sheet could not be verified. Use the downloaded backup if needed.');
+    const input=$('#prepWorkbook'),transfer=new DataTransfer();transfer.items.add(updated);input.files=transfer.files;workbookCache=null;
+    await loadWorkbookChoices();
+    $('#prepExportMeta').textContent=`Master updated: ${file.name} • ${stintCount} stints. Safety backup downloaded as ${backupName}. Wait for OneDrive to sync before drivers edit.`;
+    toast(`Master Race Pack updated with ${stintCount} stints. Check OneDrive sync.`,8000);
+  }catch(error){
+    if(error?.name!=='AbortError'){
+      console.error(error);
+      toast(`${wrote?'Master verification':'Master update'} failed: ${error.message}`,9000);
+    }
+  }finally{button.disabled=!canEdit()||!state.stints.length}
 }
 async function refreshPrepData(){
   if(!canEdit()){toast('Race Control access required.');return}
@@ -1235,7 +1281,7 @@ function renderPlanningControls(){
   $('#driverPlanning').innerHTML=state.drivers.map(d=>{const r=planningRule(d.id);return `<div class="driverplan" data-driver-plan="${d.id}"><h3>${escapeHtml(d.label)}</h3><div class="availabilityline">${escapeHtml(availabilityText(d.id))}</div><div class="toolbar"><button data-add-window="${d.id}">+ Availability window</button><button data-clear-windows="${d.id}">Clear windows</button></div><div class="sidegrid" style="margin-top:7px"><label><input type="checkbox" data-rule="mustStart" ${r.mustStart?'checked':''}> Must start</label><label><input type="checkbox" data-rule="mustFinish" ${r.mustFinish?'checked':''}> Must finish</label><label><input type="checkbox" data-rule="cannotStart" ${r.cannotStart?'checked':''}> Cannot start</label><label><input type="checkbox" data-rule="cannotFinish" ${r.cannotFinish?'checked':''}> Cannot finish</label><div class="field"><label>Max drive min (blank = default)</label><input type="number" data-rule="maxDriveMinutes" value="${r.maxDriveMinutes||''}" placeholder="${p.maxDriveMinutes}"></div><div class="field"><label>Max stints (blank = no limit)</label><input type="number" data-rule="maxStints" value="${r.maxStints||''}" placeholder="No limit"></div><div class="field"><label>Max consecutive (blank = default)</label><input type="number" data-rule="maxConsecutive" value="${r.maxConsecutive||''}" placeholder="${p.maxConsecutive}"></div><div class="field"><label>Min rest min (blank = default)</label><input type="number" data-rule="minRestMinutes" value="${r.minRestMinutes??''}" placeholder="${p.minRestMinutes}"></div><div class="field"><label>Earliest</label><input type="time" data-rule="earliest" value="${r.earliest||''}"></div><div class="field"><label>Latest</label><input type="time" data-rule="latest" value="${r.latest||''}"></div></div></div>`}).join('');
   $('#driverPlanning').querySelectorAll('[data-driver-plan]').forEach(card=>card.querySelectorAll('[data-rule]').forEach(input=>{input.disabled=!edit;input.onchange=()=>{const rule=planningRule(card.dataset.driverPlan),key=input.dataset.rule;rule[key]=input.type==='checkbox'?input.checked:(input.type==='number'?+input.value:input.value);commitState();validateAndRenderPlan()}}));
   $('#driverPlanning').querySelectorAll('[data-add-window]').forEach(b=>{b.disabled=!edit;b.onclick=()=>addAvailabilityWindow(b.dataset.addWindow)});$('#driverPlanning').querySelectorAll('[data-clear-windows]').forEach(b=>{b.disabled=!edit;b.onclick=()=>{state.planning.availability[b.dataset.clearWindows]=[];commitState();render()}});
-  for(const id of ['planTargetMin','planMaxDriveMin','planMinRestMin','planMinStintMin','planMaxConsecutive','planAllowDouble']){$('#'+id).disabled=!edit;$('#'+id).onchange=()=>{readPlanningInputs();commitState();render()}}for(const id of ['planStarter','planFinisher'])$('#'+id).disabled=!edit;for(const id of ['generateScheduleBtn','regenerateScheduleBtn','replanFutureBtn','importAvailabilityBtn'])$('#'+id).disabled=!edit;$('#importRosterBtn').disabled=!edit||state.runtime.status!=='PRE-RACE';$('#exportPrepBtn').disabled=!state.stints.length;
+  for(const id of ['planTargetMin','planMaxDriveMin','planMinRestMin','planMinStintMin','planMaxConsecutive','planAllowDouble']){$('#'+id).disabled=!edit;$('#'+id).onchange=()=>{readPlanningInputs();commitState();render()}}for(const id of ['planStarter','planFinisher'])$('#'+id).disabled=!edit;for(const id of ['generateScheduleBtn','regenerateScheduleBtn','replanFutureBtn','importAvailabilityBtn'])$('#'+id).disabled=!edit;$('#importRosterBtn').disabled=!edit||state.runtime.status!=='PRE-RACE';$('#exportPrepBtn').disabled=!edit||!state.stints.length;
 }
 
 let lastScheduleFailure=null;
@@ -2282,7 +2328,7 @@ $('#generateScheduleBtn').onclick=()=>generateAutomaticSchedule(false);
 $('#regenerateScheduleBtn').onclick=()=>generateAutomaticSchedule(state.runtime.status!=='PRE-RACE');
 $('#replanFutureBtn').onclick=()=>generateAutomaticSchedule(true);
 $('#validateScheduleBtn').onclick=()=>{readPlanningInputs();commitState();validateAndRenderPlan();toast('Schedule validation updated.')};
-$('#exportPrepBtn').onclick=exportPrepWorkbook;
+$('#exportPrepBtn').onclick=updateMasterPrepWorkbook;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
 $('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==effectiveCurrentIndex();};
 $('#quickActualStartBtn').onclick=()=>editActualStart(Number($('#actualStartStintSelect').value));
