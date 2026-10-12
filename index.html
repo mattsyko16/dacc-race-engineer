@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.5</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.6</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -158,7 +158,8 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="validateScheduleBtn">Validate</button>
             <button class="good" id="exportPrepBtn">Export Prep Workbook</button>
           </div>
-          <div class="sub">Workflow: generate and agree the stint schedule here → export the prep workbook → complete the yellow strategy cells in Excel → load that completed file under Race Pack / Excel → Publish Prep Data.</div>
+          <div class="sub">Workflow: generate and agree the stint schedule → select the original Race Pack under Race Pack / Excel → Export Prep Workbook. Open the downloaded Race Pack copy, complete its Stints &amp; Prep tab, then select that completed copy and Publish Prep Data.</div>
+          <div class="prepmeta" id="prepExportMeta">No Race Pack copy exported yet. Export downloads a file; it does not update OneDrive automatically.</div>
           <div class="planstatus"><span id="planStatus" class="statuspill">Not checked</span><span class="sub" id="planSource">Availability not imported.</span></div>
           <div id="planMessages" class="planmessages"></div>
           <div id="constraintGuide" class="constraintguide"></div>
@@ -215,7 +216,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       <section class="card" style="margin-top:12px">
         <h2>Race Pack / Excel</h2>
         <div class="cardbody">
-          <div class="sub">For a new round, leave the previous shared session, choose the Race Pack and press Start New Event. This loads Race Settings, drivers and availability into a fresh local plan. Generate and review the schedule, then create its shared race. Export Prep Workbook for the drivers to complete. No OneDrive credentials are used.</div>
+          <div class="sub">For a new round, leave the previous shared session, choose the Race Pack and press Start New Event. This loads Race Settings, drivers and availability into a fresh local plan. Generate and review the schedule, then create its shared race. Export Prep Workbook downloads a copy of the selected Race Pack with the Stints &amp; Prep tab filled in. No OneDrive credentials are used.</div>
           <div class="toolbar"><input id="prepWorkbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button id="readWorkbookBtn">Read workbook</button></div>
           <div class="sidegrid"><div class="field"><label>Stints / prep sheet</label><select id="prepSheetSelect"></select></div><div class="field"><label>Availability sheet</label><select id="availabilitySheetSelect"></select></div></div>
           <div class="toolbar"><button class="primary" id="newEventBtn">Start New Event from Race Pack</button><button id="importRosterBtn">Import Event Drivers</button><button id="importAvailabilityBtn">Import N / P / Y Availability</button><button id="refreshPrepBtn">Publish Prep Data</button></div>
@@ -953,7 +954,7 @@ async function readWorkbook(file){
     for(const row of Array.from(doc.getElementsByTagName('*')).filter(x=>x.localName==='row')){const cells={};for(const c of xmlChildren(row,'c')){const v=xmlFirst(c,'v'),inline=xmlFirst(c,'is');let value=v?.textContent??(inline?Array.from(inline.getElementsByTagName('*')).filter(x=>x.localName==='t').map(x=>x.textContent||'').join(''):'');if(c.getAttribute('t')==='s')value=strings[Number(value)]||'';cells[cellColumn(c.getAttribute('r'))]=String(value).trim();}rows.push({number:Number(row.getAttribute('r'))||rows.length+1,cells});}
     sheets[name]=rows;
   }
-  workbookCache={fileName:file.name,sheets};return workbookCache;
+  workbookCache={file,fileName:file.name,sheets};return workbookCache;
 }
 async function loadWorkbookChoices(){
   const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose DACC Motorsports.xlsx first.');return null}
@@ -1065,37 +1066,77 @@ function xlsxCell(ref,value,style=2){
   return `<c r="${ref}" s="${style}" t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`;
 }
 function xlsxRow(number,values,styles=[]){return `<row r="${number}">${values.map((value,index)=>xlsxCell(`${excelColumnName(index)}${number}`,value,styles[index]??2)).join('')}</row>`}
-function safeFilePart(value){return String(value||'Race').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,50)||'Race'}
+function safeFilePart(value){return String(value||'Race').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,100)||'Race'}
 async function exportPrepWorkbook(){
   if(!state.stints.length){toast('Generate or enter a stint schedule first.');return}
+  const file=$('#prepWorkbook').files?.[0];
+  if(!file){toast('Choose the original Race Pack under Race Pack / Excel first.');return}
   if(!window.JSZip){toast('Workbook export is unavailable.');return}
-  const rows=schedule(),headers=['Order','Stint','Driver','Target laps','Projected IRL start','Projected IRL finish','Projected server start','Projected server finish','Driving time','Preceding pit / changeover','Availability','Server temp','Air temp','Track temp','Load note','Pit strategy / load profile','Fuel (L)','Fuel / lap (L)','Brake change after','Front ducts','Rear ducts','BB','TC','TC2','ABS','LF PSI','RF PSI','LR PSI','RR PSI','Notes'];
-  const outputRows=rows.map((row,index)=>{
-    const stint=state.stints[index],prep=prepForStint(stint),preceding=index?Number(state.event.pitLossSec||0)+(state.stints[index-1].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0):0;
-    return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',prep.pitStrategy||'',prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
-  });
-  const endRow=6+outputRows.length,headerStyles=Array(30).fill(1),bodyStyles=Array(30).fill(2);for(let i=0;i<=10;i++)bodyStyles[i]=3;
-  const sheetRows=[xlsxRow(1,['DACC_RACE_ENGINEER_PREP_V1'],[5]),xlsxRow(2,['DACC Race Engineer preparation workbook'],[4]),xlsxRow(3,[`Exported ${new Date().toLocaleString()} • Complete the yellow preparation cells, then select this file in Race Engineer and press Publish Prep Data.`],[5]),xlsxRow(6,headers,headerStyles),...outputRows.map((values,index)=>xlsxRow(index+7,values,bodyStyles))].join('');
-  const columns='<cols><col min="1" max="1" width="9" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="3" width="20" customWidth="1"/><col min="4" max="4" width="12" customWidth="1"/><col min="5" max="10" width="19" customWidth="1"/><col min="11" max="15" width="14" customWidth="1"/><col min="16" max="16" width="25" customWidth="1"/><col min="17" max="25" width="14" customWidth="1"/><col min="26" max="29" width="11" customWidth="1"/><col min="30" max="30" width="32" customWidth="1"/></cols>';
-  const prepSheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane xSplit="3" ySplit="6" topLeftCell="D7" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>${columns}<sheetData>${sheetRows}</sheetData><autoFilter ref="A6:AD${endRow}"/><dataValidations count="1"><dataValidation type="list" allowBlank="1" sqref="S7:S${endRow}"><formula1>"Y,N"</formula1></dataValidation></dataValidations></worksheet>`;
-  const instructionRows=[['DACC_RACE_ENGINEER_PREP_V1'],['Preparation workflow'],['1. The stint order, drivers, laps and projected times came from Race Engineer.'],['2. Complete fuel, pit strategy, brake change, setup, pressures and notes.'],['3. In Race Engineer choose this workbook and press Read workbook.'],['4. Select Stints & Prep, then press Publish Prep Data.'],['5. If the stint order changes later, export a fresh workbook before entering more preparation data.']];
-  const instructionsSheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="105" customWidth="1"/></cols><sheetData>${instructionRows.map((row,index)=>xlsxRow(index+1,row,[index===1?4:index===0?5:2])).join('')}</sheetData></worksheet>`;
-  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="10"/><name val="Arial"/><color rgb="FF111827"/></font><font><b/><sz val="10"/><name val="Arial"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="15"/><name val="Arial"/><color rgb="FF111827"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF111827"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
-  const zip=new window.JSZip();
-  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>');
-  zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>');
-  zip.file('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Stints &amp; Prep" sheetId="1" r:id="rId1"/><sheet name="Instructions" sheetId="2" r:id="rId2"/></sheets></workbook>');
-  zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
-  zip.file('xl/worksheets/sheet1.xml',prepSheet);zip.file('xl/worksheets/sheet2.xml',instructionsSheet);zip.file('xl/styles.xml',styles);
-  const created=new Date().toISOString();zip.file('docProps/core.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>DACC Race Engineer Preparation Workbook</dc:title><dc:creator>DACC Race Engineer</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created></cp:coreProperties>`);zip.file('docProps/app.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>DACC Race Engineer</Application></Properties>');
-  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`DACC_Prep_${safeFilePart(shared.code||state.event?.round||'Race')}_${new Date().toISOString().slice(0,10)}.xlsx`;document.body.appendChild(link);link.click();setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove()},500);toast(`${outputRows.length} stints exported for preparation.`)
+  const button=$('#exportPrepBtn');button.disabled=true;
+  try{
+    const rows=schedule(),headers=['Order','Stint','Driver','Target laps','Projected IRL start','Projected IRL finish','Projected server start','Projected server finish','Driving time','Preceding pit / changeover','Availability','Server temp','Air temp','Track temp','Load note','Pit strategy / load profile','Fuel (L)','Fuel / lap (L)','Brake change after','Front ducts','Rear ducts','BB','TC','TC2','ABS','LF PSI','RF PSI','LR PSI','RR PSI','Notes'];
+    const outputRows=rows.map((row,index)=>{
+      const stint=state.stints[index],prep=prepForStint(stint),preceding=index?Number(state.event.pitLossSec||0)+(state.stints[index-1].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0):0;
+      return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',prep.pitStrategy||'',prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
+    });
+    const zip=await window.JSZip.loadAsync(await file.arrayBuffer());
+    const workbookPart=zip.file('xl/workbook.xml'),relationshipsPart=zip.file('xl/_rels/workbook.xml.rels');
+    if(!workbookPart||!relationshipsPart)throw new Error('The selected file is not a valid Race Pack workbook.');
+    const workbook=readXml(await workbookPart.async('string')),relationships=readXml(await relationshipsPart.async('string'));
+    const sheets=Array.from(workbook.getElementsByTagName('*')).filter(node=>node.localName==='sheet');
+    const prepTab=sheets.find(node=>/^stints?\s*(?:&|and)\s*prep$/i.test(node.getAttribute('name')||''))||sheets.find(node=>/stints?.*prep/i.test(node.getAttribute('name')||''));
+    if(!prepTab)throw new Error('This Race Pack needs a Stints & Prep tab. Select the DACC Race Pack template.');
+    const relationshipId=prepTab.getAttribute('r:id')||prepTab.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+    const relationship=Array.from(relationships.getElementsByTagName('*')).find(node=>node.localName==='Relationship'&&node.getAttribute('Id')===relationshipId);
+    if(!relationship)throw new Error('The Stints & Prep worksheet is missing from this workbook.');
+    const target=relationship.getAttribute('Target'),sheetPath=target.startsWith('/')?target.slice(1):new URL(target,'https://race-pack.local/xl/').pathname.slice(1);
+    const worksheetPart=zip.file(sheetPath);
+    if(!worksheetPart)throw new Error('The Stints & Prep worksheet could not be read.');
+    const worksheet=readXml(await worksheetPart.async('string')),sheetData=Array.from(worksheet.getElementsByTagName('*')).find(node=>node.localName==='sheetData');
+    if(!sheetData)throw new Error('The Stints & Prep worksheet has no cell grid.');
+    const styleAt=(reference,fallback=0)=>{
+      const cell=Array.from(worksheet.getElementsByTagName('*')).find(node=>node.localName==='c'&&node.getAttribute('r')===reference);
+      return Number(cell?.getAttribute('s')??fallback);
+    };
+    const headerStyles=headers.map((_,index)=>styleAt(`${excelColumnName(index)}6`,0));
+    const bodyStyles=headers.map((_,index)=>styleAt(`${excelColumnName(index)}7`,0));
+    const endRow=6+outputRows.length;
+    const newRows=[
+      xlsxRow(1,['DACC_RACE_ENGINEER_PREP_V1'],[styleAt('A3',0)]),
+      xlsxRow(2,['Stints and Preparation — generated by Race Engineer'],[styleAt('A2',0)]),
+      xlsxRow(3,[`Downloaded copy of ${file.name} • ${new Date().toLocaleString()} • Complete preparation cells, then choose this downloaded file in Race Engineer and Publish Prep Data.`],[styleAt('A3',0)]),
+      xlsxRow(6,headers,headerStyles),
+      ...outputRows.map((values,index)=>xlsxRow(index+7,values,bodyStyles))
+    ].join('');
+    const rowSource=readXml(`<sheetData xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${newRows}</sheetData>`);
+    while(sheetData.firstChild)sheetData.removeChild(sheetData.firstChild);
+    for(const row of Array.from(rowSource.documentElement.children))sheetData.appendChild(worksheet.importNode(row,true));
+    const dimension=Array.from(worksheet.documentElement.children).find(node=>node.localName==='dimension');
+    if(dimension)dimension.setAttribute('ref',`A1:AD${endRow}`);
+    const autoFilter=Array.from(worksheet.documentElement.children).find(node=>node.localName==='autoFilter');
+    if(autoFilter)autoFilter.setAttribute('ref',`A6:AD${endRow}`);
+    const validations=Array.from(worksheet.getElementsByTagName('*')).filter(node=>node.localName==='dataValidation');
+    for(const validation of validations){
+      const formula=Array.from(validation.children).find(node=>node.localName==='formula1')?.textContent||'';
+      if(formula.includes('DACCEventDriverList'))validation.setAttribute('sqref',`C7:C${endRow}`);
+      else if(formula.includes('Y,N'))validation.setAttribute('sqref',`S7:S${endRow}`);
+    }
+    zip.file(sheetPath,new XMLSerializer().serializeToString(worksheet));
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const name=`${safeFilePart(file.name.replace(/\.xlsx$/i,''))}_With_Prep_${new Date().toISOString().slice(0,10)}.xlsx`;
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=name;document.body.appendChild(link);link.click();
+    setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove()},1000);
+    $('#prepExportMeta').textContent=`Downloaded ${name} with ${outputRows.length} stints. Open it from browser Downloads. The selected OneDrive original and published prep are unchanged.`;
+    toast(`Race Pack copy downloaded with ${outputRows.length} stints. Open ${name} from Downloads.`,7000);
+  }catch(error){console.error(error);toast(`Prep export failed: ${error.message}`,8000)}
+  finally{button.disabled=!state.stints.length}
 }
 async function refreshPrepData(){
   if(!canEdit()){toast('Race Control access required.');return}
   const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose the current DACC Motorsports.xlsx file first.');return}
   $('#refreshPrepBtn').disabled=true;
   try{
-    if(!workbookCache||workbookCache.fileName!==file.name)await loadWorkbookChoices();
+    if(!workbookCache||workbookCache.file!==file)await loadWorkbookChoices();
     const selected=selectedSheetRows('#prepSheetSelect'),exportedPrep=selected.rows.some(r=>Object.values(r.cells).includes('DACC_RACE_ENGINEER_PREP_V1')),rows=selected.rows.map(r=>{const match=r.cells.B?.match(/^Stint\s+(\d+)$/i);return match?{number:+match[1],cells:r.cells}:null}).filter(Boolean);if(!rows.length)throw new Error(`No numbered stints found on ${selected.name}`);
     const byNumber=new Map(rows.map(r=>[r.number,r]));
     const baselines={};for(const row of rows){
@@ -1142,7 +1183,7 @@ async function importEventDrivers(){
   if(!canEdit()){toast('Race Control access required.');return}if(state.runtime.status!=='PRE-RACE'){toast('The event roster can only be imported before the race starts.');return}
   const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose the current DACC Motorsports.xlsx file first.');return}
   try{
-    if(!workbookCache||workbookCache.fileName!==file.name)await loadWorkbookChoices();const selected=selectedSheetRows('#availabilitySheetSelect'),detected=discoverEventDrivers(selected.rows);
+    if(!workbookCache||workbookCache.file!==file)await loadWorkbookChoices();const selected=selectedSheetRows('#availabilitySheetSelect'),detected=discoverEventDrivers(selected.rows);
     const settingsRows=workbookCache.sheets['Race Settings']||[];
     const setting=name=>String(settingsRows.find(r=>String(r.cells.A||'').trim().toLowerCase()===name.toLowerCase())?.cells.B||'').trim();
     const chosenDriver=name=>detected.find(d=>canonicalDriverId(d.id)===canonicalDriverId(name)||canonicalDriverId(d.label)===canonicalDriverId(name));
@@ -1178,7 +1219,7 @@ function availabilityImportFromRows(rows){
 }
 async function importAvailability(){
   if(!canEdit()){toast('Race Control access required.');return}const file=$('#prepWorkbook').files?.[0];if(!file){toast('Choose the current DACC Motorsports.xlsx file first.');return}
-  try{if(!workbookCache||workbookCache.fileName!==file.name)await loadWorkbookChoices();const selected=selectedSheetRows('#availabilitySheetSelect'),parsed=availabilityImportFromRows(selected.rows);state.planning.availability={...state.planning.availability,...parsed.availability};state.planning.source={name:file.name,sheet:selected.name,importedAt:new Date().toISOString(),matched:parsed.matched,blockMinutes:Math.round(parsed.blockSec/60)};addLog(`Availability imported from ${selected.name}: ${parsed.matched} drivers`,false);commitState();render();toast(`Availability imported for ${parsed.matched} drivers.`)}catch(e){console.error(e);toast(`Availability import failed: ${e.message}`,7000)}
+  try{if(!workbookCache||workbookCache.file!==file)await loadWorkbookChoices();const selected=selectedSheetRows('#availabilitySheetSelect'),parsed=availabilityImportFromRows(selected.rows);state.planning.availability={...state.planning.availability,...parsed.availability};state.planning.source={name:file.name,sheet:selected.name,importedAt:new Date().toISOString(),matched:parsed.matched,blockMinutes:Math.round(parsed.blockSec/60)};addLog(`Availability imported from ${selected.name}: ${parsed.matched} drivers`,false);commitState();render();toast(`Availability imported for ${parsed.matched} drivers.`)}catch(e){console.error(e);toast(`Availability import failed: ${e.message}`,7000)}
 }
 
 function readPlanningInputs(){
