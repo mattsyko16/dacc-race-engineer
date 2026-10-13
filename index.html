@@ -61,6 +61,7 @@ select{min-width:120px} input.small{width:72px}
 .totalstable table{min-width:0}.totalstable td,.totalstable th{padding:6px}
 .warning{padding:8px 10px;border-radius:8px;background:#332b17;color:#ffdb7c;border:1px solid #5a491f;margin-top:8px}.syncrow{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.sessioncode{font-size:20px;font-weight:900;letter-spacing:.12em}.goodtext{color:var(--good)}.badtext{color:var(--bad)}
 .hidden{display:none !important;pointer-events:none !important}.modalback{position:fixed;pointer-events:auto;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;z-index:9999;padding:18px}.modalbox{width:min(480px,100%);background:#151b25;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px}.modalbox h3{margin:0 0 8px;font-size:18px}.modalbox p{color:#cbd5e5;white-space:pre-wrap}.modalbox input{width:100%;margin:8px 0 12px}.toast{position:fixed;right:18px;bottom:18px;z-index:10000;background:#17202c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);max-width:360px}
+.buttonguide{margin:10px 0;border:1px solid var(--line);border-radius:10px;background:#101722}.buttonguide summary{cursor:pointer;padding:11px 12px;color:var(--accent);font-weight:800}.buttonguidebody{padding:0 12px 12px}.buttonguide h3{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#cbd5e5;margin:12px 0 6px}.buttonguide dl{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr);gap:6px 12px;margin:0}.buttonguide dt{font-weight:750}.buttonguide dd{margin:0;color:var(--muted)}@media(max-width:540px){.buttonguide dl{grid-template-columns:1fr;gap:2px}.buttonguide dd{margin-bottom:8px}}
 textarea{width:100%;min-height:90px;background:#0f141c;border:1px solid #344055;color:var(--text);border-radius:8px;padding:8px;resize:vertical}
 footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 .prepsummary{margin-top:9px;padding:9px;border:1px solid var(--line);border-radius:9px;background:#101722;font-size:12px}.prepsummary strong{color:#dfe8fa}.prepsummary .prepgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 9px;margin-top:8px}.prepsummary .prepgrid span{min-width:0;overflow-wrap:anywhere}.prepsummary .prepgrid .prepwide{grid-column:1/-1}.prepsummary .pressurelabel{margin-top:10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em}.prepsummary .pressuregrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:5px}.prepsummary .pressurecell{display:flex;justify-content:space-between;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#172131;font-variant-numeric:tabular-nums}.prepsummary .pressurecell b{color:#f4f6fb}.prepsummary details{margin-top:8px}.prepsummary summary{cursor:pointer;color:var(--accent)}.prepsummary .prepline{margin-top:5px;color:#cbd5e5;white-space:pre-wrap}.actualbadge{font-size:10px;color:var(--good);font-weight:800}.prepmeta{font-size:11px;color:var(--muted);margin-top:6px}
@@ -77,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.14</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.15</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -121,6 +122,39 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <button id="addStintBtn">+ Add stint</button><button id="brakePlanBtn">BRAKE PLAN</button>
             <button id="resetBtn">Reset race state</button>
           </div>
+          <details class="buttonguide" id="buttonGuide"><summary>Button Guide — what each control does</summary><div class="buttonguidebody">
+            <h3>Race timing</h3><dl>
+              <dt>START RACE</dt><dd>Starts the shared race clock and records the first actual start.</dd>
+              <dt>Pre-race countdown / Set countdown</dt><dd>Starts or changes the countdown before the race begins.</dd>
+              <dt>PAUSE / RESUME</dt><dd>Pauses or resumes the race clock; the stint plan stays in place.</dd>
+              <dt>PIT NOW / Advance stint</dt><dd>Finishes the current stint and moves to the next driver. Advance uses the planned timing before the race.</dd>
+              <dt>Undo advance</dt><dd>Reverses the most recent mistaken stint advance.</dd>
+              <dt>+1 / −1 lap current</dt><dd>Adjusts the current stint target by one lap.</dd>
+              <dt>Delay downstream</dt><dd>Moves future projected times later without changing completed timing.</dd>
+              <dt>SERVER RESET / RESYNC</dt><dd>Reanchors the server clock and remaining time after a server restart.</dd>
+              <dt>Set Actual Start / Finish / NOW</dt><dd>Records real IRL stint timing; NOW uses the current time for the current stint.</dd>
+              <dt>BRAKE PLAN</dt><dd>Plans brake changes and includes the extra 45 seconds at that stop.</dd>
+              <dt>Reset race state</dt><dd>Resets race timing for everyone in this same shared session. It keeps the join code and schedule.</dd>
+            </dl><h3>Shared session</h3><dl>
+              <dt>Create Shared Race</dt><dd>Publishes your local plan and creates a new team join code.</dd>
+              <dt>Join Active Race / Join Code</dt><dd>Joins the newest active race, or a specific code that you enter.</dd>
+              <dt>Show Join Code</dt><dd>Displays the current session code for teammates. The code is also visible in the top bar.</dd>
+              <dt>Copy Team App Link</dt><dd>Copies the permanent app address; it follows the newest published race.</dd>
+              <dt>Unlock Race Control</dt><dd>Uses the separate private key to allow editing on this device.</dd>
+              <dt>Leave Session</dt><dd>Disconnects only this device. The shared race continues for everyone else.</dd>
+              <dt>End &amp; Start Fresh</dt><dd>Race Control closes the current join code and resets timing locally. Review the plan, then Create Shared Race for a new code.</dd>
+            </dl><h3>Planning, prep, and records</h3><dl>
+              <dt>Add stint / ↑ / ↓ / ×</dt><dd>Adds, moves, or removes a future stint; the lock box protects a stint during regeneration.</dd>
+              <dt>Generate / Regenerate / Replan</dt><dd>Builds or revises the schedule from availability and limits. Completed and locked stints stay fixed.</dd>
+              <dt>Read workbook / Start New Event</dt><dd>Reads a Race Pack or starts a new round from its settings and driver list.</dd>
+              <dt>Import drivers / availability</dt><dd>Brings the event roster and Y/P/N time slots from the workbook into planning.</dd>
+              <dt>Update Master Prep Sheet</dt><dd>Writes the current stint order into the selected synced Race Pack after a safety backup.</dd>
+              <dt>Publish Prep Data</dt><dd>Reads completed prep values from the workbook into the shared race.</dd>
+              <dt>Calculate fuel / Use current stint</dt><dd>Calculates fuel for entered laps or time; the second button fills the current stint laps.</dd>
+              <dt>Add Incident / Save Incidents CSV</dt><dd>Records a shared incident or downloads the incident log.</dd>
+              <dt>Save / Export JSON / Import JSON</dt><dd>Saves locally, downloads a full race backup, or restores one from a file.</dd>
+              <dt>Recalculate schedule</dt><dd>Applies edited Race Settings and refreshes future projections.</dd>
+            </dl></div></details>
           <div id="liveBanner" class="warning hidden"></div>
 
           <div class="tablewrap">
@@ -196,8 +230,10 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="toolbar">
             <button class="primary" id="createSessionBtn">Create Shared Race</button>
             <button id="joinActiveBtn">Join Active Race</button>
+            <button id="showJoinCodeBtn" disabled>Show Join Code</button>
             <button id="copySessionBtn" disabled>Copy Team App Link</button>
             <button id="leaveSessionBtn" disabled>Leave Session</button>
+            <button class="bad" id="endSessionBtn" disabled>End &amp; Start Fresh</button>
           </div>
           <div class="sidegrid">
             <div class="field"><label>Session code</label><input id="sessionCodeInput" type="text" maxlength="12" placeholder="e.g. A1B2C3D4"/></div>
@@ -354,7 +390,10 @@ const shared={
   applyingRemote:false,
   pushTimer:null,
   localDirty:false,
-  conflictGuard:true
+  conflictGuard:true,
+  discoveryTimer:null,
+  discoveryBusy:false,
+  discoverEventKey:null
 };
 const teamTimingRelay={socket:null,heartbeat:null,reconnect:null,seen:new Set(),ref:1,code:null,ready:false};
 const canSubmitTiming=()=>canEdit() || !!(shared.supabase&&shared.code);
@@ -457,6 +496,8 @@ function modalAsk({title='Confirm',text='',input=false,value='',ok='OK',cancel='
 }
 function renderSharedMeta(){
   $('#sharedCode').textContent=shared.code||'LOCAL';
+  $('#headerJoinCodeBtn').textContent=shared.code?`Join code ${shared.code}`:'Join code —';
+  $('#headerJoinCodeBtn').disabled=!shared.code;
   $('#roleBadge').textContent=canEdit()?'RACE CONTROL':'VIEW ONLY';
   $('#roleBadge').style.color=canEdit()?'var(--good)':'var(--muted)';
   $('#lastUpdated').textContent=shared.lastUpdated?new Date(shared.lastUpdated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
@@ -469,7 +510,9 @@ function renderSharedMeta(){
     if(controlKeyInput.value!==shared.controlKey)controlKeyInput.value=shared.controlKey;
   }
   $('#copySessionBtn').disabled=!shared.code;
+  $('#showJoinCodeBtn').disabled=!shared.code;
   $('#leaveSessionBtn').disabled=!shared.code;
+  $('#endSessionBtn').disabled=!shared.code || !shared.isController || !shared.supabase;
   $('#createSessionBtn').disabled=!!shared.code || !shared.supabase;
   $('#joinActiveBtn').disabled=!!shared.code || !shared.supabase;
   $('#joinCodeBtn').disabled=!!shared.code || !shared.supabase;
@@ -2140,6 +2183,40 @@ async function unsubscribeShared(){
   clearInterval(shared.channel);
   shared.channel=null;
 }
+function stopSessionDiscovery(){
+  clearInterval(shared.discoveryTimer);
+  shared.discoveryTimer=null;
+  shared.discoverEventKey=null;
+}
+function clearSharedConnection({forgetKey=false}={}){
+  const code=shared.code;
+  clearTimeout(shared.pushTimer);
+  shared.pushTimer=null;
+  shared.code=null;shared.controlKey=null;shared.isController=false;
+  shared.lastUpdated=null;shared.lastPulledAtMs=0;shared.localDirty=false;
+  shared.lastLatestCheckAtMs=0;
+  localStorage.removeItem('dacc-session-code');
+  if(forgetKey&&code)localStorage.removeItem(`dacc-control-key:${code}`);
+  $('#controlKeyInput').value='';$('#sessionCodeInput').value='';
+}
+async function discoverReplacementSession(){
+  if(!shared.supabase||shared.code||shared.discoveryBusy)return;
+  shared.discoveryBusy=true;
+  try{
+    const filter=shared.discoverEventKey
+      ? `event_key=eq.${encodeURIComponent(shared.discoverEventKey)}`
+      : activeRaceFilter();
+    const data=await supa(`dacc_race_sessions?select=code&${filter}&is_active=eq.true&order=created_at.desc&limit=1`);
+    if(Array.isArray(data)&&data[0]?.code)await joinSession(data[0].code);
+  }catch(err){console.warn('Waiting for next shared race',err)}
+  finally{shared.discoveryBusy=false}
+}
+function startSessionDiscovery(eventKey=null){
+  if(cfg.autoJoinLatest===false||shared.code)return;
+  shared.discoverEventKey=eventKey||null;
+  if(!shared.discoveryTimer)shared.discoveryTimer=setInterval(discoverReplacementSession,5000);
+  void discoverReplacementSession();
+}
 async function pollShared(){
   if(!shared.supabase||!shared.code)return;
   try{
@@ -2147,7 +2224,15 @@ async function pollShared(){
     const data=await supa(`dacc_race_sessions?select=code,state,updated_at&code=eq.${code}&is_active=eq.true&limit=1`);
     if(code!==encodeURIComponent(shared.code||''))return;
     const row=Array.isArray(data)?data[0]:null;
-    if(!row){setSyncStatus('OFFLINE');return}
+    if(!row){
+      const endedCode=shared.code,eventKey=state.event?.eventKey;
+      await unsubscribeShared();
+      clearSharedConnection({forgetKey:true});
+      setSyncStatus('LOCAL');render();
+      toast(`Session ${endedCode} ended. Waiting for its replacement.`,6000);
+      startSessionDiscovery(eventKey);
+      return;
+    }
     shared.lastPulledAtMs=Date.now();
     if(!shared.lastUpdated || row.updated_at!==shared.lastUpdated){
       if(shared.localDirty && shared.isController){
@@ -2178,6 +2263,7 @@ async function followLatestPublishedRace(){
   finally{shared.checkingLatest=false}
 }
 async function subscribeShared(){
+  stopSessionDiscovery();
   setSyncStatus('LIVE');
   clearInterval(shared.channel);
   shared.channel=setInterval(pollShared,1000);
@@ -2192,7 +2278,10 @@ async function joinSession(code){
     const enc=encodeURIComponent(code);
     const data=await supa(`dacc_race_sessions?select=code,state,updated_at&code=eq.${enc}&is_active=eq.true&limit=1`);
     const row=Array.isArray(data)?data[0]:null;
-    if(!row){setSyncStatus('OFFLINE');toast('Active race session not found.');return}
+    if(!row){
+      if(localStorage.getItem('dacc-session-code')===code)localStorage.removeItem('dacc-session-code');
+      setSyncStatus('LOCAL');toast('Active race session not found.');return;
+    }
     shared.code=row.code;localStorage.setItem('dacc-session-code',shared.code);
     const stored=localStorage.getItem(`dacc-control-key:${shared.code}`)||'';
     shared.controlKey=stored;
@@ -2277,14 +2366,57 @@ async function unlockControlWithPrompt(){
   return true;
 }
 async function leaveSession(){
-  await unsubscribeShared();shared.code=null;shared.controlKey=null;shared.isController=false;shared.lastUpdated=null;shared.lastPulledAtMs=0;
-  localStorage.removeItem('dacc-session-code');$('#controlKeyInput').value='';setSyncStatus('LOCAL');render();
+  await unsubscribeShared();stopSessionDiscovery();clearSharedConnection();setSyncStatus('LOCAL');render();
 }
 async function copyViewerLink(){
   if(!shared.code)return;
   const u=new URL(location.href);u.search='';u.hash='';
   try{await navigator.clipboard.writeText(u.toString());toast('Permanent team app link copied. It follows the newest published race.')}
   catch{toast(`Team app link: ${u.toString()}`)}
+}
+async function showJoinCode(){
+  if(!shared.code){toast('Join a shared race to see its code.');return}
+  const code=shared.code;
+  const copy=await modalAsk({
+    title:'Team join code',
+    text:`${code}\n\nTeammates can enter this under Shared Race Session → Join Code, or choose Join Active Race. The Race Control key is separate and private.`,
+    ok:'Copy code',cancel:'Close'
+  });
+  if(copy){
+    try{await navigator.clipboard.writeText(code);toast('Join code copied.')}catch{toast(`Join code: ${code}`,7000)}
+  }
+}
+function downloadRaceBackup(filename='dacc-race-state.json'){
+  saveLocal();
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
+  a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function resetRaceRuntime(){
+  const old=state.runtime||{};
+  state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:old.notes||'',log:[],countdownSec:old.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverRemainingHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null,serverRemainingAnchorStintIndex:null,lastManualAdvanceUndo:null,autoAdvanceSuppressedIndex:null};
+}
+async function endAndStartFresh(){
+  if(!shared.code||!shared.isController||!shared.controlKey){toast('Unlock Race Control to end this shared race.');return}
+  const code=shared.code,key=shared.controlKey;
+  const typed=await modalAsk({
+    title:'End this shared race?',
+    text:`Session ${code} will stop accepting updates and its join code will expire for everyone. Its last state remains archived. Your schedule and prep stay on this device, and race timing resets. Review the plan, then press Create Shared Race for a new code.\n\nType END to continue.`,
+    input:true,ok:'End session',cancel:'Keep race'
+  });
+  if(typed===null||typed===false)return;
+  if(String(typed).trim().toUpperCase()!=='END'){toast('Session kept. Type END exactly to close it.');return}
+  if(shared.localDirty && !await pushSharedState()){toast('Latest edits could not sync. Session was kept.',6500);return}
+  setSyncStatus('CONNECTING');
+  try{
+    const closed=await supa('rpc/dacc_end_race_session',{method:'POST',body:{p_code:code,p_control_key:key}});
+    if(closed!==true)throw new Error('Session was not closed; check the Race Control key.');
+    try{downloadRaceBackup(`DACC_${code}_before_fresh.json`)}catch(err){console.warn('Automatic JSON backup unavailable',err)}
+    await unsubscribeShared();stopSessionDiscovery();clearSharedConnection({forgetKey:true});
+    localStorage.setItem('dacc-pending-event-key',state.event.eventKey);
+    resetRaceRuntime();commitState();setSyncStatus('LOCAL');render();
+    toast('Old session ended. Review the plan, then Create Shared Race for a new code.',8000);
+  }catch(err){console.error(err);setSyncStatus('LIVE');toast(`Could not end session: ${err.message}`,6500)}
 }
 
 async function autoJoinLatestWithRetry(){
@@ -2327,8 +2459,8 @@ async function initShared(){
   if(param&&new URLSearchParams(location.search).get('pin')==='1'){await joinSession(param);return}
   if(cfg.autoJoinLatest!==false){const code=await autoJoinLatestWithRetry();if(code){await joinSession(code);return}}
   if(param){await joinSession(param);return}
-  if(saved){await joinSession(saved);return}
-  if(cfg.autoJoinLatest!==false) await joinActive();
+  if(saved){await joinSession(saved);if(!shared.code)startSessionDiscovery(state.event?.eventKey);return}
+  if(cfg.autoJoinLatest!==false){await joinActive();if(!shared.code)startSessionDiscovery()}
 }
 async function pushSharedState(){
   if(!shared.supabase||!shared.code||!shared.isController)return false;
@@ -2384,7 +2516,7 @@ $('#quickActualStartBtn').onclick=()=>editActualStart(Number($('#actualStartStin
 $('#quickActualFinishBtn').onclick=()=>editActualFinish(Number($('#actualStartStintSelect').value));
 $('#quickActualNowBtn').onclick=setCurrentStartNow;
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
-$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverRemainingHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null,serverRemainingAnchorStintIndex:null,lastManualAdvanceUndo:null,autoAdvanceSuppressedIndex:null};commitState();render()}};
+$('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings and the join code are kept.',ok:'RESET'});if(ok){resetRaceRuntime();commitState();render()}};
 $('#recalcBtn').onclick=()=>{
   if(!canEdit())return;
   const old=schedule(),newServerStart=$('#serverStart').value,newSimBotUrl=$('#simbotUrlInput').value.trim();
@@ -2412,12 +2544,14 @@ $('#recalcBtn').onclick=()=>{
   addLog(changed?`Server Start Time changed to ${newServerStart}; current/future projections recalculated`:'Schedule recalculated',false);commitState();render();
 };
 $('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
-$('#exportBtn').onclick=()=>{saveLocal();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dacc-race-state.json';a.click();URL.revokeObjectURL(a.href)};
+$('#exportBtn').onclick=()=>downloadRaceBackup();
 $('#importFile').onchange=async e=>{if(!canEdit())return;const f=e.target.files[0];if(!f)return;state=JSON.parse(await f.text());migrateRuntime();addLog('Imported JSON',false);commitState();render()};
 $('#strategyNotes').onchange=()=>{if(canEdit())commitState()};
 $('#createSessionBtn').onclick=createSharedSession;$('#joinActiveBtn').onclick=joinActive;$('#tapTestBtn').onclick=()=>toast('Tap test OK — controls are responding on this device.');
 $('#joinCodeBtn').onclick=()=>joinSession($('#sessionCodeInput').value);$('#unlockControlBtn').onclick=unlockControl;
 $('#leaveSessionBtn').onclick=leaveSession;$('#copySessionBtn').onclick=copyViewerLink;
+$('#showJoinCodeBtn').onclick=showJoinCode;$('#headerJoinCodeBtn').onclick=showJoinCode;
+$('#endSessionBtn').onclick=endAndStartFresh;
 
 
 async function voiceTextFallback(){
@@ -2525,6 +2659,57 @@ async function initDiscord(){
     const {DiscordSDK}=await import('https://esm.sh/@discord/embedded-app-sdk');
     const sdk=new DiscordSDK(clientId);await sdk.ready();$('#modeBadge').textContent='Discord Activity';
   }catch(err){console.warn(err);$('#modeBadge').textContent='Standalone (Discord SDK unavailable)'}
+}
+
+const buttonHelp={
+  headerJoinCodeBtn:'Show and copy the active team join code.',
+  notifyBtn:'Turn race notifications on or off on this device.',
+  saveBtn:'Save the current race to this device.',
+  exportBtn:'Download a JSON backup of this race.',
+  quickActualStartBtn:'Set the selected stint’s real IRL start time.',
+  quickActualFinishBtn:'Set the selected stint’s real IRL finish time.',
+  quickActualNowBtn:'Record the current time as the current stint start.',
+  startRaceBtn:'Start the race clock and the first stint.',
+  countdownBtn:'Start the pre-race countdown.',
+  countdownSetBtn:'Choose the pre-race countdown length.',
+  pauseRaceBtn:'Pause or resume the race clock.',
+  pitNowBtn:'Finish this stint now and move to the next driver.',
+  plusLapBtn:'Add one lap to the current stint target.',
+  minusLapBtn:'Remove one lap from the current stint target.',
+  delayBtn:'Move future projected times later.',
+  serverResyncBtn:'Correct the server clock and remaining time after a restart.',
+  advanceBtn:'Move to the next stint using planned or current timing.',
+  undoAdvanceBtn:'Undo the most recent stint advance.',
+  addStintBtn:'Add a stint to the plan.',
+  brakePlanBtn:'Plan brake changes and the extra 45-second stop time.',
+  resetBtn:'Reset race timing for everyone while keeping this session and join code.',
+  generateScheduleBtn:'Build a stint plan from availability and planning limits.',
+  regenerateScheduleBtn:'Rebuild unlocked future stints after planning changes.',
+  replanFutureBtn:'Replan future stints without changing completed timing.',
+  validateScheduleBtn:'Show availability and planning errors in the current schedule.',
+  createSessionBtn:'Publish this plan as a shared race with a new join code.',
+  joinActiveBtn:'Join the newest published race.',
+  showJoinCodeBtn:'Show and copy the current team join code.',
+  copySessionBtn:'Copy the permanent team app link.',
+  leaveSessionBtn:'Disconnect only this device from the shared race.',
+  endSessionBtn:'Close this shared race for everyone, then create a fresh one.',
+  joinCodeBtn:'Join a shared race using its code.',
+  unlockControlBtn:'Enter the private key to edit the shared race.',
+  readWorkbookBtn:'Read the selected Race Pack workbook.',
+  newEventBtn:'Start a new round from Race Pack settings.',
+  importRosterBtn:'Import the selected drivers from the workbook.',
+  importAvailabilityBtn:'Import hourly Y, P, and N availability.',
+  exportPrepBtn:'Write the current stint order into the synced master workbook.',
+  refreshPrepBtn:'Publish workbook prep values to the shared race.',
+  calcFuelBtn:'Calculate fuel for the entered laps or time.',
+  useCurrentBtn:'Fill fuel calculator laps from the current stint.',
+  recalcBtn:'Apply Race Settings changes to future projections.',
+  addIncidentBtn:'Add an incident to the shared log.',
+  saveIncidentsBtn:'Download the incident log as CSV.'
+};
+for(const [id,description] of Object.entries(buttonHelp)){
+  const control=$('#'+id);
+  if(control){control.title=description;control.setAttribute('aria-description',description)}
 }
 
 const _modal=$('#modalBack'); if(_modal){_modal.style.display='none';_modal.classList.add('hidden');}
