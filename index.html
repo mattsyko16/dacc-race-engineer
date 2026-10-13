@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.11</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.12</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -1413,11 +1413,15 @@ function render(){
   $('#plannedFinish').textContent=secToClock(lastRow?.serverFinish||0);
   const projectedRemaining=Math.max(0,(lastRow?.finishElapsed||0)-elapsed);
   const finishDelta=projectedRemaining-raceRemainingSec();
+  const oneLapMargin=Math.max(1,Number(e.avgLapSec)||90.8);
   const finishKpi=$('#projectedFinishKpi');
   finishKpi.classList.remove('finish-green','finish-yellow','finish-red');
   if(finishDelta<0){
     finishKpi.classList.add('finish-red');
     $('#finishMargin').textContent=`${fmtSec(Math.abs(finishDelta))} SHORT of full distance`;
+  }else if(finishDelta<oneLapMargin){
+    finishKpi.classList.add('finish-yellow');
+    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance • less than one lap in hand`;
   }else if(finishDelta<=300){
     finishKpi.classList.add('finish-green');
     $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance`;
