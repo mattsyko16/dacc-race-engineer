@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.10</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.11</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -254,8 +254,10 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <div class="field"><label>Pit loss (sec)</label><input id="pitLossSec" type="number" step="1"/></div>
             <div class="field"><label>Race hours</label><input id="raceHours" type="number" step="1"/></div>
             <div class="field"><label>Planning avg lap (sec)</label><input id="planAvgLapSec" type="number" step=".1"/></div>
+            <div class="field" style="grid-column:1/-1"><label>SimBot live timing URL for this round</label><input id="simbotUrlInput" type="text" placeholder="Paste the full SimBot Live Laps link"/></div>
           </div>
           <div class="toolbar"><button id="recalcBtn">Recalculate schedule</button></div>
+          <div class="sub">Save the SimBot URL with Recalculate schedule. It is shared with the race so every device follows the same timing source.</div>
           <div id="availWarning" class="warning hidden"></div>
         </div>
       </section>
@@ -322,10 +324,10 @@ const secToClock=s=>{s=((s%86400)+86400)%86400;return `${pad(Math.floor(s/3600))
 const deepClone=o=>JSON.parse(JSON.stringify(o));
 const BRAKE_CHANGE_EXTRA_SEC=45;
 const cfg=window.DACC_CONFIG||{};
-const SIMBOT_PAGE_URL=cfg.simbotUrl||'https://web.simbot.app/live-laps?server=SIM%2520Racing%2520Club%2520-%2520The%2520Proper%2520One%2520Server%25201&sessionType=live&dataType=race';
-const SIMBOT_SERVER=cfg.simbotServer||'SIM Racing Club - The Proper One Server 1';
+const LEGACY_SIMBOT_PAGE_URL=cfg.simbotUrl||'https://web.simbot.app/live-laps?server=SIM%2520Racing%2520Club%2520-%2520The%2520Proper%2520One%2520Server%25201&sessionType=live&dataType=race';
+const LEGACY_SIMBOT_SERVER=cfg.simbotServer||'SIM Racing Club - The Proper One Server 1';
 const SIMBOT_CAR=String(cfg.simbotCarNumber||48);
-const simbot={socket:null,connected:false,lastPayloadAt:0,payload:null,error:null};
+const simbot={socket:null,connected:false,lastPayloadAt:0,payload:null,error:null,sourceKey:null,server:null};
 
 let seed = await fetch('./seed.json').then(r=>r.json());
 let state = JSON.parse(localStorage.getItem('dacc-race-engineer')||'null') || deepClone(seed);
@@ -1398,6 +1400,7 @@ function render(){
   if(document.activeElement!==$('#pitLossSec')) $('#pitLossSec').value=e.pitLossSec;
   if(document.activeElement!==$('#raceHours')) $('#raceHours').value=e.raceHours;
   if(document.activeElement!==$('#planAvgLapSec')) $('#planAvgLapSec').value=e.avgLapSec;
+  if(document.activeElement!==$('#simbotUrlInput')) $('#simbotUrlInput').value=e.simbotUrl||'';
   if(document.activeElement!==$('#strategyNotes')) $('#strategyNotes').value=state.runtime.notes||''; $('#countdownBtn').textContent=`START PRE-RACE COUNTDOWN (${Math.floor((state.runtime.countdownSec||120)/60)}:${pad((state.runtime.countdownSec||120)%60)})`;
 
   $('#statusBadge').textContent=phase;
@@ -1545,6 +1548,7 @@ function render(){
   $('#availWarning').textContent=warnings.join(' ');
   renderPlanningControls();validateAndRenderPlan();
   renderLog();renderIncidentLog();renderSharedMeta();updateMobileStatus();try{updateNotifyButton()}catch(e){console.warn('notify UI ignored',e)};
+  syncSimBotSource();
 }
 function move(i,d){
   if(!canEdit()) return;
@@ -2376,8 +2380,9 @@ $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=start
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings are kept.',ok:'RESET'});if(ok){state.runtime={currentIndex:0,status:'PRE-RACE',startedAtMs:null,startClockSec:null,totalPausedMs:0,pausedAtMs:null,manualElapsedSec:0,actualStints:[],notes:state.runtime.notes||'',log:[],countdownSec:state.runtime.countdownSec||120,countdownEndsAtMs:null,countdownActive:false,plannedDelays:{},serverHistory:{},serverRemainingHistory:{},serverAnchorElapsedSec:0,serverAnchorClockSec:timeToSec(state.event.serverStart),serverRemainingAnchorSec:null,serverRemainingAnchorStintIndex:null,lastManualAdvanceUndo:null,autoAdvanceSuppressedIndex:null};commitState();render()}};
 $('#recalcBtn').onclick=()=>{
   if(!canEdit())return;
-  const old=schedule(),newServerStart=$('#serverStart').value;
+  const old=schedule(),newServerStart=$('#serverStart').value,newSimBotUrl=$('#simbotUrlInput').value.trim();
   if(!newServerStart){toast('Enter a valid Server Start Time.');return}
+  if(newSimBotUrl&&!parseSimBotSource(newSimBotUrl)){toast('Enter a full https://web.simbot.app/live-laps link containing a server parameter.');return}
   state.runtime.serverHistory ||= {};
   state.runtime.serverRemainingHistory ||= {};
   for(let i=0;i<state.runtime.currentIndex;i++){
@@ -2389,6 +2394,7 @@ $('#recalcBtn').onclick=()=>{
   }
   const changed=state.event.serverStart!==newServerStart;
   state.event.irlStart=$('#irlStart').value;state.event.serverStart=newServerStart;
+  state.event.simbotUrl=newSimBotUrl;
   state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;
   if(changed){
     state.runtime.serverAnchorClockSec=timeToSec(newServerStart);state.runtime.serverAnchorElapsedSec=0;state.runtime.serverRemainingAnchorSec=null;state.runtime.serverRemainingAnchorStintIndex=null;
@@ -2457,6 +2463,24 @@ function updateMobileStatus(){
 }
 
 function simbotStatus(now=Date.now()){const age=simbot.lastPayloadAt?now-simbot.lastPayloadAt:Infinity;if(simbot.connected&&age<=15000)return 'LIVE';if(simbot.lastPayloadAt&&age<=60000)return 'STALE';return 'OFFLINE'}
+function parseSimBotSource(raw){
+  try{
+    const url=new URL(String(raw||'').trim());
+    if(url.protocol!=='https:'||url.hostname!=='web.simbot.app'||url.pathname.replace(/\/$/,'')!=='/live-laps')return null;
+    const encoded=url.searchParams.get('server');
+    if(!encoded)return null;
+    const server=decodeURIComponent(encoded).trim();
+    return server?{url:url.href,server}:null;
+  }catch{return null}
+}
+function currentSimBotSource(){
+  const selected=String(state.event?.simbotUrl||'').trim();
+  if(selected)return parseSimBotSource(selected);
+  // Existing Round 9 sessions keep their original SimBot feed. New rounds wait
+  // for Race Control to enter that round's server link in shared Race Settings.
+  return !state.event?.round||String(state.event.round)==='9'
+    ?{url:LEGACY_SIMBOT_PAGE_URL,server:LEGACY_SIMBOT_SERVER}:null;
+}
 function simbotTime(value){if(value===null||value===undefined||value==='')return '—';if(typeof value==='string'&&value.includes(':'))return value;const ms=Number(value);if(!Number.isFinite(ms))return '—';const total=Math.max(0,Math.round(ms/1000));return `${Math.floor(total/60)}:${pad(total%60)}`}
 function simbotGap(a,b){if(!a||!b)return '—';const lapDiff=Math.abs(Number(a.lapCount||0)-Number(b.lapCount||0));if(lapDiff)return `${lapDiff} lap${lapDiff===1?'':'s'}`;const gap=Math.abs(Number(a.totalRaceTime)-Number(b.totalRaceTime));return Number.isFinite(gap)?simbotTime(gap):'—'}
 function simbotEntryName(entry){if(!entry)return '—';const team=entry.teamName||entry.team||entry.entryName||entry.teamNames||entry.driverNames;return String(team||`Car ${entry.raceNumber||'—'}`).trim()||`Car ${entry.raceNumber||'—'}`}
@@ -2464,9 +2488,28 @@ function renderSimBot(){
   try{const status=simbotStatus(),statusEl=$('#simbotStatus');if(!statusEl)return;statusEl.textContent=status;statusEl.className=`timingstatus timing-${status.toLowerCase()}`;const payload=simbot.payload||{},drivers=Array.isArray(payload.driversArray)?payload.driversArray.slice():[],ordered=drivers.sort((a,b)=>Number(b.numSectors||0)-Number(a.numSectors||0)||Number(a.totalRaceTime||Infinity)-Number(b.totalRaceTime||Infinity)),idx=ordered.findIndex(x=>String(x.raceNumber)===String(state.event?.carNumber||SIMBOT_CAR)),car=idx>=0?ordered[idx]:null,ahead=car&&idx>0?ordered[idx-1]:null,behind=car&&idx<ordered.length-1?ordered[idx+1]:null,session=payload.sessionData||{};$('#simbotPosition').textContent=car?String(idx+1):'—';$('#simbotLaps').textContent=car&&Number.isFinite(+car.lapCount)?String(car.lapCount):'—';$('#simbotLast').textContent=car?simbotTime(car.lastLap?.lapTime??car.lastLap?.lapTimeMs):'—';$('#simbotBest').textContent=car?simbotTime(car.bestLap?.lapTime??car.bestLap?.lapTimeMs):'—';$('#simbotAheadTeam').textContent=ahead?simbotEntryName(ahead):car&&idx===0?'Race leader':'—';$('#simbotAhead').textContent=ahead?simbotGap(car,ahead):car&&idx===0?'LEADER':'—';$('#simbotBehindTeam').textContent=behind?simbotEntryName(behind):'—';$('#simbotBehind').textContent=behind?simbotGap(car,behind):'—';const rawRemaining=session.timeRemaining,remaining=Number(rawRemaining);$('#simbotRemaining').textContent=typeof rawRemaining==='string'&&rawRemaining.includes(':')?rawRemaining:(Number.isFinite(remaining)?fmtSec(Math.max(0,remaining*60)):'—');$('#simbotSession').textContent=[session.trackName,session.sessionType].filter(Boolean).join(' • ')||'—';$('#simbotUpdated').textContent=simbot.lastPayloadAt?`${status==='LIVE'?'Updated':'Last update'} ${Math.floor((Date.now()-simbot.lastPayloadAt)/1000)}s ago`:(simbot.error||'Waiting for SimBot')}
   catch(err){console.warn('SimBot display ignored',err)}
 }
-function initSimBot(){
-  $('#simbotFullLink').href=SIMBOT_PAGE_URL;try{if(typeof window.io!=='function')throw new Error('Timing client unavailable');const options={transports:['websocket'],timeout:10000,reconnection:true,reconnectionDelay:1500,reconnectionDelayMax:10000},endpoint=isDiscordActivityHost()?location.origin:'https://web.simbot.app';if(isDiscordActivityHost())options.path='/simbot/socket.io';const socket=window.io(endpoint,options);simbot.socket=socket;socket.on('connect',()=>{simbot.connected=true;simbot.error=null;socket.emit('join',{server:SIMBOT_SERVER});renderSimBot()});socket.on(SIMBOT_SERVER,data=>{if(!data||typeof data!=='object')return;simbot.payload=data;simbot.lastPayloadAt=Date.now();simbot.error=null;renderSimBot()});socket.on('disconnect',()=>{simbot.connected=false;renderSimBot()});socket.on('connect_error',err=>{simbot.connected=false;simbot.error='Timing feed unavailable';console.warn('SimBot unavailable',err?.message||err);renderSimBot()})}catch(err){simbot.error='Timing feed unavailable';console.warn('SimBot disabled',err);renderSimBot()}setInterval(renderSimBot,5000)
+function syncSimBotSource(){
+  const source=currentSimBotSource(),key=source?`${source.url}|${source.server}`:'';
+  if(key===simbot.sourceKey)return;
+  simbot.sourceKey=key;
+  if(simbot.socket){try{simbot.socket.removeAllListeners?.();simbot.socket.disconnect()}catch(err){console.warn('Previous SimBot connection cleanup ignored',err)}}
+  simbot.socket=null;simbot.server=source?.server||null;simbot.connected=false;simbot.payload=null;simbot.lastPayloadAt=0;
+  const link=$('#simbotFullLink');link.hidden=!source;
+  if(!source){simbot.error='Set SimBot URL in Race Settings';renderSimBot();return}
+  link.href=source.url;simbot.error=null;
+  try{
+    if(typeof window.io!=='function')throw new Error('Timing client unavailable');
+    const options={transports:['websocket'],timeout:10000,reconnection:true,reconnectionDelay:1500,reconnectionDelayMax:10000};
+    const endpoint=isDiscordActivityHost()?location.origin:'https://web.simbot.app';
+    if(isDiscordActivityHost())options.path='/simbot/socket.io';
+    const socket=window.io(endpoint,options);simbot.socket=socket;
+    socket.on('connect',()=>{simbot.connected=true;simbot.error=null;socket.emit('join',{server:source.server});renderSimBot()});
+    socket.on(source.server,data=>{if(!data||typeof data!=='object')return;simbot.payload=data;simbot.lastPayloadAt=Date.now();simbot.error=null;renderSimBot()});
+    socket.on('disconnect',()=>{simbot.connected=false;renderSimBot()});
+    socket.on('connect_error',err=>{simbot.connected=false;simbot.error='Timing feed unavailable';console.warn('SimBot unavailable',err?.message||err);renderSimBot()});
+  }catch(err){simbot.error='Timing feed unavailable';console.warn('SimBot disabled',err);renderSimBot()}
 }
+function initSimBot(){syncSimBotSource();setInterval(renderSimBot,5000)}
 
 async function initDiscord(){
   const clientId=String(cfg.discordClientId||'').trim();
