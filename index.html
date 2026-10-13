@@ -77,7 +77,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.9</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.10</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -196,7 +196,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="toolbar">
             <button class="primary" id="createSessionBtn">Create Shared Race</button>
             <button id="joinActiveBtn">Join Active Race</button>
-            <button id="copySessionBtn" disabled>Copy Viewer Link</button>
+            <button id="copySessionBtn" disabled>Copy Team App Link</button>
             <button id="leaveSessionBtn" disabled>Leave Session</button>
           </div>
           <div class="sidegrid">
@@ -347,6 +347,8 @@ const shared={
   status:'LOCAL',
   lastUpdated:null,
   lastPulledAtMs:0,
+  lastLatestCheckAtMs:0,
+  checkingLatest:false,
   applyingRemote:false,
   pushTimer:null,
   localDirty:false,
@@ -472,10 +474,10 @@ function renderSharedMeta(){
   $('#unlockControlBtn').disabled=!shared.code || shared.isController || !shared.supabase;
   $('#newEventBtn').disabled=!!shared.code;
   $('#sharedHelp').textContent = !shared.code
-    ? 'Create one shared race, then everyone else can launch the Activity and choose Join Active Race.'
+    ? 'LOCAL is only on this device. When the schedule is valid, press Create Shared Race to publish this round. The permanent team app link will then follow it.'
     : shared.isController
-      ? 'RACE CONTROL — this device can edit. The same key can unlock 2–3 trusted Race Control devices.'
-      : 'VIEW ONLY — live race status is shared. Enter the shared Race Control key and click Unlock Race Control. The same key may be used on multiple trusted devices.';
+      ? 'RACE CONTROL — this device can edit. Copy Team App Link gives everyone the same URL for every round. The same key can unlock trusted controllers.'
+      : 'VIEW ONLY — live race status is shared. This app follows the newest published round. Enter the shared Race Control key to unlock full editing.';
 }
 function addLog(msg, sync=true){
   const entry={ts:new Date().toISOString(),msg};
@@ -1037,6 +1039,8 @@ async function startNewEventFromRacePack(){
     state.planning.source={name:file.name,sheet:'Driver Availability',importedAt:new Date().toISOString(),matched:imported.matched,blockMinutes:Math.round(imported.blockSec/60)};
     state.planning.rosterSource={name:file.name,sheet:'Driver Availability',importedAt:new Date().toISOString(),count:detected.length};
     localStorage.removeItem('dacc-session-code');
+    // Keep a new local plan on this device until Race Control publishes its shared session.
+    localStorage.setItem('dacc-pending-event-key',state.event.eventKey);
     localStorage.setItem('dacc-incident-car',carNumber);
     $('#incidentCar').value=carNumber;
     localCalc={fuelPerLap:0,avgLapSec,tankLitres:0,fuelMarginLaps:1};localStorage.setItem('dacc-fuel-calc',JSON.stringify(localCalc));initCalcInputs();
@@ -2130,6 +2134,7 @@ async function pollShared(){
   try{
     const code=encodeURIComponent(shared.code);
     const data=await supa(`dacc_race_sessions?select=code,state,updated_at&code=eq.${code}&is_active=eq.true&limit=1`);
+    if(code!==encodeURIComponent(shared.code||''))return;
     const row=Array.isArray(data)?data[0]:null;
     if(!row){setSyncStatus('OFFLINE');return}
     shared.lastPulledAtMs=Date.now();
@@ -2141,7 +2146,25 @@ async function pollShared(){
       }
     }
     if(shared.status!=='CONFLICT') setSyncStatus('LIVE');
+    await followLatestPublishedRace();
   }catch(err){console.error(err);setSyncStatus('RECONNECTING')}
+}
+async function followLatestPublishedRace(){
+  if(cfg.autoJoinLatest===false||!shared.code||shared.localDirty||shared.checkingLatest)return;
+  const now=Date.now();
+  if(now-shared.lastLatestCheckAtMs<60000)return;
+  shared.lastLatestCheckAtMs=now;shared.checkingLatest=true;
+  try{
+    const data=await supa(`dacc_race_sessions?select=code&${activeRaceFilter()}&is_active=eq.true&order=created_at.desc&limit=1`);
+    const latest=Array.isArray(data)?data[0]?.code:null;
+    if(latest&&latest!==shared.code){
+      await unsubscribeShared();
+      shared.code=null;shared.controlKey=null;shared.isController=false;shared.lastUpdated=null;
+      await joinSession(latest);
+      toast('The newest published race is now open on this device.');
+    }
+  }catch(err){console.warn('Latest race check deferred',err)}
+  finally{shared.checkingLatest=false}
 }
 async function subscribeShared(){
   setSyncStatus('LIVE');
@@ -2165,11 +2188,13 @@ async function joinSession(code){
     shared.isController=stored?await verifyController(shared.code,stored):false;
     if(!shared.isController)shared.controlKey='';
     applyRemote(row.state,row.updated_at);
+    localStorage.removeItem('dacc-pending-event-key');
     await subscribeShared();
     render();
   }catch(err){console.error(err);setSyncStatus('OFFLINE');toast(`Could not join race: ${err.message}`)}
 }
-function activeRaceFilter(){return state.event?.eventKey?`event_key=eq.${encodeURIComponent(state.event.eventKey)}`:'event_key=like.dacc-*'}
+// The permanent team URL follows the newest published race across rounds.
+function activeRaceFilter(){return 'event_key=like.dacc-*'}
 async function joinActive(){
   if(!shared.supabase){toast('Supabase is not configured yet.');return}
   setSyncStatus('CONNECTING');
@@ -2203,6 +2228,7 @@ async function createSharedSession(){
     const row=Array.isArray(data)?data[0]:data;
     shared.code=row.code;shared.controlKey=key;shared.isController=true;
     localStorage.setItem('dacc-session-code',shared.code);
+    localStorage.removeItem('dacc-pending-event-key');
     localStorage.setItem(`dacc-control-key:${shared.code}`,key);
     $('#controlKeyInput').value=key;
     shared.lastUpdated=new Date().toISOString();
@@ -2245,9 +2271,9 @@ async function leaveSession(){
 }
 async function copyViewerLink(){
   if(!shared.code)return;
-  const u=new URL(location.href);u.searchParams.set('session',shared.code);
-  try{await navigator.clipboard.writeText(u.toString());toast('Viewer link copied.')}
-  catch{toast(`Session code: ${shared.code}`)}
+  const u=new URL(location.href);u.search='';u.hash='';
+  try{await navigator.clipboard.writeText(u.toString());toast('Permanent team app link copied. It follows the newest published race.')}
+  catch{toast(`Team app link: ${u.toString()}`)}
 }
 
 async function autoJoinLatestWithRetry(){
@@ -2278,10 +2304,19 @@ async function initShared(){
   if(!url||!key){setSyncStatus('LOCAL');renderSharedMeta();$('#sharedHelp').textContent='Shared race is unavailable: config.js is missing or incomplete. Check the deployed configuration.';return}
   shared.supabase=true;
   const param=new URLSearchParams(location.search).get('session');
-  if(param){await joinSession(param);return}
   const saved=localStorage.getItem('dacc-session-code');
+  // Preserve an unpublished Race Pack plan on its controller device, including plans
+  // created with an earlier app version before this marker existed.
+  if(!saved&&state.event?.eventKey&&state.planning?.settingsSource&&state.runtime?.status==='PRE-RACE'&&!localStorage.getItem('dacc-pending-event-key')){
+    localStorage.setItem('dacc-pending-event-key',state.event.eventKey);
+  }
+  if(localStorage.getItem('dacc-pending-event-key')===state.event?.eventKey){setSyncStatus('LOCAL');renderSharedMeta();return}
+  // pin=1 is available for a deliberately fixed session link. Ordinary saved links
+  // and home-screen shortcuts follow the newest active event instead.
+  if(param&&new URLSearchParams(location.search).get('pin')==='1'){await joinSession(param);return}
+  if(cfg.autoJoinLatest!==false){const code=await autoJoinLatestWithRetry();if(code){await joinSession(code);return}}
+  if(param){await joinSession(param);return}
   if(saved){await joinSession(saved);return}
-  if(cfg.autoJoinLatest){const code=await autoJoinLatestWithRetry();if(code){await joinSession(code);return}}
   if(cfg.autoJoinLatest!==false) await joinActive();
 }
 async function pushSharedState(){
