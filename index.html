@@ -26,10 +26,10 @@ h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
 .card{background:rgba(20,25,34,.96);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .card h2{font-size:13px;letter-spacing:.05em;text-transform:uppercase;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);color:#dfe6f3}
 .cardbody{padding:12px}
-.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
-@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}button{min-height:46px;padding:11px 13px;font-size:15px}.toolbar{gap:8px}.toolbar button{flex:1 1 145px}.shell{padding:7px}.cardbody{padding:9px}.tablewrap{font-size:12px}.drivercard .name{font-size:18px}.kpi .value{font-size:18px}.sidegrid{grid-template-columns:1fr}.field input,.field select{min-height:44px;font-size:16px}.modalbox input{min-height:46px;font-size:16px}.syncrow{align-items:flex-start}.sessioncode{font-size:18px}}
-.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px}
-.kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi .value{font-size:22px;font-weight:800;margin-top:4px}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}button{min-height:46px;padding:11px 13px;font-size:15px}.toolbar{gap:8px}.toolbar button{flex:1 1 145px}.shell{padding:7px}.cardbody{padding:9px}.tablewrap{font-size:12px}.drivercard .name{font-size:18px}.kpi .value{font-size:18px}.sidegrid{grid-template-columns:1fr}.field input,.field select{min-height:44px;font-size:16px}.modalbox input{min-height:46px;font-size:16px}.syncrow{align-items:flex-start}.sessioncode{font-size:18px}}
+.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px;min-width:0;min-height:96px}
+.kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi .value{font-size:22px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .change-green{border-color:var(--good)!important;background:#10271f!important}.change-green .value{color:#6ee7b7}.change-yellow{border-color:var(--warn)!important;background:#302815!important}.change-yellow .value{color:#ffdb7c}.change-red{border-color:var(--bad)!important;background:#321b1b!important}.change-red .value{color:#ff9b9b}.change-urgent{box-shadow:0 0 0 2px rgba(242,109,109,.35),0 8px 28px rgba(0,0,0,.28)}.change-target{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drivercards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
 @media(max-width:760px){.drivercards{grid-template-columns:1fr}}
@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.20</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.21</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -330,7 +330,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.20 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.21 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -850,20 +850,23 @@ function raceRemainingSec(elapsed=elapsedRaceSec()){
 // a driver is typing and the rest of the screen deliberately avoids rerendering.
 function updateRaceClocks(sch=schedule(),elapsed=elapsedRaceSec()){
   const e=state.event;
-  $('#raceRemaining').textContent=fmtSec(raceRemainingSec(elapsed));
+  const remainingNow=raceRemainingSec(elapsed);
+  $('#raceRemaining').textContent=fmtSec(remainingNow);
   const serverNowBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(e.serverStart);
   const serverNowAnchor=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
-  $('#serverClock').textContent=secToClock(serverNowBase+(elapsed-serverNowAnchor));
+  const serverNow=serverNowBase+(elapsed-serverNowAnchor);
+  $('#serverClock').textContent=secToClock(serverNow);
   const lastRow=sch.at(-1);
-  $('#plannedFinish').textContent=secToClock(lastRow?.serverFinish||0);
-  const projectedRemaining=Math.max(0,(lastRow?.finishElapsed||0)-elapsed);
-  const finishDelta=projectedRemaining-raceRemainingSec(elapsed);
+  // One live server-clock sample drives the forecast and the race countdown.
+  const projectedRemaining=(lastRow?.finishElapsed||0)-elapsed;
+  $('#plannedFinish').textContent=secToClock(serverNow+projectedRemaining);
+  const finishDelta=projectedRemaining-remainingNow;
   const oneLapMargin=Math.max(1,Number(e.avgLapSec)||90.8);
   const finishKpi=$('#projectedFinishKpi');
   finishKpi.classList.remove('finish-green','finish-yellow','finish-red');
   if(finishDelta<0){
     finishKpi.classList.add('finish-red');
-    $('#finishMargin').textContent=`${fmtSec(Math.abs(finishDelta))} SHORT of full distance`;
+    $('#finishMargin').textContent=`Plan ends ${fmtSec(Math.abs(finishDelta))} before race end`;
   }else if(finishDelta<oneLapMargin){
     finishKpi.classList.add('finish-yellow');
     $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance • less than one lap in hand`;
@@ -875,6 +878,8 @@ function updateRaceClocks(sch=schedule(),elapsed=elapsedRaceSec()){
     $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance`;
   }
   updateDriverChangeCountdown(sch,elapsed);
+  const currentRemaining=$('#currentStintRemaining');
+  if(currentRemaining)currentRemaining.textContent=fmtSec(remainingNow);
 }
 
 
@@ -1593,7 +1598,7 @@ function render(){
       <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint (+45 seconds to pit time)"></td>
       <td style="text-align:center"><input class="lockbox" type="checkbox" data-lock="${i}" ${state.stints[i].locked?'checked':''} ${(!edit||(state.runtime.status!=='PRE-RACE'&&i<=cur))?'disabled':''} title="Keep this stint unchanged when regenerating"></td>
       <td>${secToClock(r.start)}${r.isActualStart?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}${Number.isFinite(state.runtime.serverHistory?.[i]?.serverStart)?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.serverFinish)}</td>
-      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status==='LIVE'?` <button data-now="${i}" title="Tap when the next driver goes on track; pit time is counted once" ${!canSubmitTiming()?'disabled':''}>FINISH NOW</button>`:''}</td>
+      <td ${i===cur&&state.runtime.status==='LIVE'?'id="currentStintRemaining" title="Live race time remaining"':''}>${fmtSec(i===cur&&state.runtime.status==='LIVE'?raceRemainingSec(elapsed):r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status==='LIVE'?` <button data-now="${i}" title="Tap when the next driver goes on track; pit time is counted once" ${!canSubmitTiming()?'disabled':''}>FINISH NOW</button>`:''}</td>
       <td><div class="rowbtns">
         <button data-up="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur+1))?'disabled':''}>↑</button>
         <button data-down="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur))?'disabled':''}>↓</button>
