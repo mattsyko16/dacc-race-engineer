@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.17</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.18</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -106,7 +106,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <select id="actualStartStintSelect" aria-label="Stint for actual start"></select>
             <button id="quickActualStartBtn">Set Actual Start</button>
             <button id="quickActualFinishBtn">Set Actual Finish</button>
-            <button class="good" id="quickActualNowBtn">NOW (current)</button>
+            <button class="good" id="quickActualNowBtn">FINISH NOW (current)</button>
           </div>
 
           <div class="toolbar">
@@ -132,7 +132,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
               <dt>+1 / −1 lap current</dt><dd>Adjusts the current stint target by one lap.</dd>
               <dt>Delay downstream</dt><dd>Moves future projected times later without changing completed timing.</dd>
               <dt>SERVER RESET / RESYNC</dt><dd>Reanchors the server clock and remaining time after a server restart.</dd>
-              <dt>Set Actual Start / Finish / NOW</dt><dd>Records real IRL stint timing; NOW uses the current time for the current stint.</dd>
+              <dt>Set Actual Start / Finish / FINISH NOW</dt><dd>Enter or correct an actual start or finish time. FINISH NOW ends the current stint at the tap and advances to the next driver.</dd>
               <dt>BRAKE PLAN</dt><dd>Plans brake changes and includes the extra 45 seconds at that stop.</dd>
               <dt>Reset race state</dt><dd>Resets race timing for everyone in this same shared session. It keeps the join code and schedule.</dd>
             </dl><h3>Shared session</h3><dl>
@@ -330,7 +330,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.17 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.18 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -716,14 +716,26 @@ async function editActualFinish(i){
   if(!canEdit())return requestTeamTiming('finish',i,irlSec);
   await setActualFinish(i,irlSec);
 }
-async function setCurrentStartNow(){
-  if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED')return;
-  if(!canEdit())return requestTeamTiming('now',effectiveCurrentIndex(),null);
+async function finishCurrentNow(){
+  if(!canSubmitTiming()||state.runtime.status!=='LIVE')return;
+  // Use the race's IRL clock model so a driver's device timezone does not
+  // change the recorded time.
+  const i=effectiveCurrentIndex();
+  const irl=((Math.floor(actualRaceStartClockSec()+elapsedRaceSec())%86400)+86400)%86400;
+  // Reuse the existing finish relay so a driver on a phone can record the tap
+  // time and an already-open Race Control client publishes it for everyone.
+  if(!canEdit())return requestTeamTiming('finish',i,irl);
   catchUpDueStints();
-  if(state.runtime.status==='FINISHED')return;
-  const i=state.runtime.currentIndex;
-  const d=new Date(),irl=d.getHours()*3600+d.getMinutes()*60+d.getSeconds();
-  await setActualStart(i,irl,{syncRemainingToMain:true});
+  if(state.runtime.status!=='LIVE'||i!==state.runtime.currentIndex)return;
+  await setActualFinish(i,irl);
+}
+// Older open pages still send this request until they refresh. Keep its original
+// meaning so a mixed-version team does not silently change a start into a finish.
+async function setCurrentStartNow(){
+  if(!canEdit()||state.runtime.status!=='LIVE')return;
+  catchUpDueStints();
+  if(state.runtime.status!=='LIVE')return;
+  await setActualStart(state.runtime.currentIndex,localClockSecNow(),{syncRemainingToMain:true});
 }
 function effectiveCurrentIndex(sch=schedule(),elapsed=elapsedRaceSec()){
   const last=Math.max(0,sch.length-1);
@@ -1545,7 +1557,7 @@ function render(){
   actualSelect.disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualStartBtn').disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualFinishBtn').disabled=state.runtime.status==='PRE-RACE';
-  $('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||Number(actualSelect.value)!==cur;
+  $('#quickActualNowBtn').disabled=state.runtime.status!=='LIVE'||Number(actualSelect.value)!==cur;
   $('#actualStartHelp').textContent=state.runtime.status==='PRE-RACE'?'Available after the race starts.':!edit?'Any connected driver can set times. Keep a Race Control laptop open to publish the change to everyone.':'Choose the current or a completed stint; server start/finish is calculated automatically.';
 
   const tbody=$('#stintTable tbody');tbody.innerHTML='';
@@ -1562,7 +1574,7 @@ function render(){
       <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint (+45 seconds to pit time)"></td>
       <td style="text-align:center"><input class="lockbox" type="checkbox" data-lock="${i}" ${state.stints[i].locked?'checked':''} ${(!edit||(state.runtime.status!=='PRE-RACE'&&i<=cur))?'disabled':''} title="Keep this stint unchanged when regenerating"></td>
       <td>${secToClock(r.start)}${r.isActualStart?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}${Number.isFinite(state.runtime.serverHistory?.[i]?.serverStart)?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.serverFinish)}</td>
-      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status!=='PRE-RACE'&&state.runtime.status!=='FINISHED'?` <button data-now="${i}" ${!canSubmitTiming()?'disabled':''}>NOW</button>`:''}</td>
+      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status==='LIVE'?` <button data-now="${i}" ${!canSubmitTiming()?'disabled':''}>FINISH NOW</button>`:''}</td>
       <td><div class="rowbtns">
         <button data-up="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur+1))?'disabled':''}>↑</button>
         <button data-down="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur))?'disabled':''}>↓</button>
@@ -1586,7 +1598,7 @@ function render(){
   tbody.querySelectorAll('[data-up]').forEach(x=>x.onclick=()=>move(+x.dataset.up,-1));
   tbody.querySelectorAll('[data-actual]').forEach(x=>x.onclick=()=>editActualStart(+x.dataset.actual));
   tbody.querySelectorAll('[data-actual-finish]').forEach(x=>x.onclick=()=>editActualFinish(+x.dataset.actualFinish));
-  tbody.querySelectorAll('[data-now]').forEach(x=>x.onclick=setCurrentStartNow);
+  tbody.querySelectorAll('[data-now]').forEach(x=>x.onclick=finishCurrentNow);
   tbody.querySelectorAll('[data-down]').forEach(x=>x.onclick=()=>move(+x.dataset.down,1));
   tbody.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{
     if(!canEdit()) return;
@@ -2525,10 +2537,10 @@ $('#replanFutureBtn').onclick=()=>generateAutomaticSchedule(true);
 $('#validateScheduleBtn').onclick=()=>{readPlanningInputs();commitState();validateAndRenderPlan();toast('Schedule validation updated.')};
 $('#exportPrepBtn').onclick=updateMasterPrepWorkbook;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
-$('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED'||i!==effectiveCurrentIndex();};
+$('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value);$('#quickActualNowBtn').disabled=state.runtime.status!=='LIVE'||i!==effectiveCurrentIndex();};
 $('#quickActualStartBtn').onclick=()=>editActualStart(Number($('#actualStartStintSelect').value));
 $('#quickActualFinishBtn').onclick=()=>editActualFinish(Number($('#actualStartStintSelect').value));
-$('#quickActualNowBtn').onclick=setCurrentStartNow;
+$('#quickActualNowBtn').onclick=finishCurrentNow;
 $('#startRaceBtn').onclick=()=>startRace(false);$('#countdownBtn').onclick=startCountdown;$('#countdownSetBtn').onclick=setCountdown;$('#pauseRaceBtn').onclick=pauseResume;$('#addStintBtn').onclick=addStint;
 $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({title:'Reset race state?',text:'Reset live race state for EVERYONE in this shared session? Schedule/settings and the join code are kept.',ok:'RESET'});if(ok){resetRaceRuntime();commitState();render()}};
 $('#recalcBtn').onclick=()=>{
@@ -2687,7 +2699,7 @@ const buttonHelp={
   exportBtn:'Download a JSON backup of this race.',
   quickActualStartBtn:'Set the selected stint’s real IRL start time.',
   quickActualFinishBtn:'Set the selected stint’s real IRL finish time.',
-  quickActualNowBtn:'Record the current time as the current stint start.',
+  quickActualNowBtn:'Finish the current stint at the tap, then move to the next driver after the pit/changeover. Available to every connected team member.',
   startRaceBtn:'Start the race clock and the first stint.',
   countdownBtn:'Start the pre-race countdown.',
   countdownSetBtn:'Choose the pre-race countdown length.',
