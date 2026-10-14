@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.16</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.17</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -330,7 +330,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.16 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.17 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -568,11 +568,11 @@ function localClockSecNow(){
   const d=new Date();
   return d.getHours()*3600+d.getMinutes()*60+d.getSeconds();
 }
-function elapsedRaceSec(){
+function elapsedRaceSec(nowMs=Date.now()){
   const r=state.runtime;
   if(r.status==='PRE-RACE') return 0;
   if(!r.startedAtMs) return r.manualElapsedSec||0;
-  const now = r.status==='PAUSED' && r.pausedAtMs ? r.pausedAtMs : Date.now();
+  const now = r.status==='PAUSED' && r.pausedAtMs ? r.pausedAtMs : nowMs;
   return Math.max(0,(now-r.startedAtMs-r.totalPausedMs)/1000);
 }
 function actualRaceStartClockSec(){
@@ -745,7 +745,7 @@ function livePhase(sch){
 
 let countdownZeroHandled=false;
 
-function updateCountdownDisplay(){
+function updateCountdownDisplay(nowMs=Date.now()){
   const el=$('#startCountdown');
   if(!el) return;
 
@@ -759,7 +759,7 @@ function updateCountdownDisplay(){
     return;
   }
 
-  const msLeft=Math.max(0,state.runtime.countdownEndsAtMs-Date.now());
+  const msLeft=Math.max(0,state.runtime.countdownEndsAtMs-nowMs);
   const secLeft=msLeft/1000;
   el.textContent=fmtSec(Math.ceil(secLeft));
 
@@ -793,27 +793,57 @@ function driverChangeCountdownModel(sch=schedule(),elapsed=elapsedRaceSec()){
   const seconds=Math.max(0,row.finishElapsed-(status==='PRE-RACE'?0:elapsed));
   const tone=seconds>1200?'green':seconds>300?'yellow':'red';
   const autoPaused=state.runtime.autoAdvanceSuppressedIndex===state.runtime.currentIndex;
-  return {seconds,tone,urgent:seconds<=0||autoPaused,autoPaused,target:autoPaused?'AUTO ADVANCE PAUSED after undo — use PIT NOW or Advance stint':`Next: ${label(next.driver)} • projected ${secToClock(row.finish)}`};
+  return {seconds,tone,urgent:seconds<=0||autoPaused,autoPaused,target:autoPaused?'AUTO ADVANCE PAUSED after undo — use PIT NOW or Advance stint':`Pit ${secToClock(row.finish)} • ${label(next.driver)} handover ${secToClock(next.start)}`};
 }
-function updateDriverChangeCountdown(){
+function updateDriverChangeCountdown(sch=schedule(),elapsed=elapsedRaceSec()){
   const el=$('#driverChangeCountdown'),box=$('#driverChangeKpi'),target=$('#driverChangeTarget');
   if(!el||!box||!target)return;
-  const result=driverChangeCountdownModel();
+  const result=driverChangeCountdownModel(sch,elapsed);
   box.classList.remove('change-green','change-yellow','change-red','change-urgent');
   if(result.tone!=='none')box.classList.add(`change-${result.tone}`);
   if(result.urgent)box.classList.add('change-urgent');
   el.textContent=result.seconds===null?'—':fmtSec(Math.ceil(result.seconds));
-  target.textContent=result.autoPaused?result.target:result.urgent?'CHANGE DUE NOW — advance stint or record next actual start':result.target;
+  target.textContent=result.autoPaused?result.target:result.urgent?'PIT DUE NOW — advance stint or record next actual start':result.target;
 }
 
-function raceRemainingSec(){
-  const elapsed=elapsedRaceSec();
+function raceRemainingSec(elapsed=elapsedRaceSec()){
   const r=state.runtime;
   if(Number.isFinite(r.serverRemainingAnchorSec)){
     const anchorElapsed=Number.isFinite(r.serverAnchorElapsedSec)?r.serverAnchorElapsedSec:elapsed;
     return Math.max(0,r.serverRemainingAnchorSec-(elapsed-anchorElapsed));
   }
   return Math.max(0,state.event.raceHours*3600-elapsed);
+}
+
+// Refresh every visible race clock from the same elapsed-time sample, even while
+// a driver is typing and the rest of the screen deliberately avoids rerendering.
+function updateRaceClocks(sch=schedule(),elapsed=elapsedRaceSec()){
+  const e=state.event;
+  $('#raceRemaining').textContent=fmtSec(raceRemainingSec(elapsed));
+  const serverNowBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(e.serverStart);
+  const serverNowAnchor=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
+  $('#serverClock').textContent=secToClock(serverNowBase+(elapsed-serverNowAnchor));
+  const lastRow=sch.at(-1);
+  $('#plannedFinish').textContent=secToClock(lastRow?.serverFinish||0);
+  const projectedRemaining=Math.max(0,(lastRow?.finishElapsed||0)-elapsed);
+  const finishDelta=projectedRemaining-raceRemainingSec(elapsed);
+  const oneLapMargin=Math.max(1,Number(e.avgLapSec)||90.8);
+  const finishKpi=$('#projectedFinishKpi');
+  finishKpi.classList.remove('finish-green','finish-yellow','finish-red');
+  if(finishDelta<0){
+    finishKpi.classList.add('finish-red');
+    $('#finishMargin').textContent=`${fmtSec(Math.abs(finishDelta))} SHORT of full distance`;
+  }else if(finishDelta<oneLapMargin){
+    finishKpi.classList.add('finish-yellow');
+    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance • less than one lap in hand`;
+  }else if(finishDelta<=300){
+    finishKpi.classList.add('finish-green');
+    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance`;
+  }else{
+    finishKpi.classList.add('finish-yellow');
+    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance`;
+  }
+  updateDriverChangeCountdown(sch,elapsed);
 }
 
 
@@ -1450,34 +1480,10 @@ function render(){
 
   $('#statusBadge').textContent=phase;
   $('#statusBadge').style.color=phase==='LIVE'?'var(--good)':phase==='PAUSED'||phase==='PIT / CHANGEOVER'||phase==='COUNTDOWN'?'var(--warn)':phase==='FINISHED'?'var(--bad)':'var(--muted)';
-  $('#raceRemaining').textContent=fmtSec(raceRemainingSec());
-  const serverNowBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(e.serverStart);
-  const serverNowAnchor=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
-  $('#serverClock').textContent=secToClock(serverNowBase+(elapsed-serverNowAnchor));
-  const lastRow=sch.at(-1);
-  $('#plannedFinish').textContent=secToClock(lastRow?.serverFinish||0);
-  const projectedRemaining=Math.max(0,(lastRow?.finishElapsed||0)-elapsed);
-  const finishDelta=projectedRemaining-raceRemainingSec();
-  const oneLapMargin=Math.max(1,Number(e.avgLapSec)||90.8);
-  const finishKpi=$('#projectedFinishKpi');
-  finishKpi.classList.remove('finish-green','finish-yellow','finish-red');
-  if(finishDelta<0){
-    finishKpi.classList.add('finish-red');
-    $('#finishMargin').textContent=`${fmtSec(Math.abs(finishDelta))} SHORT of full distance`;
-  }else if(finishDelta<oneLapMargin){
-    finishKpi.classList.add('finish-yellow');
-    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance • less than one lap in hand`;
-  }else if(finishDelta<=300){
-    finishKpi.classList.add('finish-green');
-    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance`;
-  }else{
-    finishKpi.classList.add('finish-yellow');
-    $('#finishMargin').textContent=`+${fmtSec(finishDelta)} over full distance`;
-  }
+  updateRaceClocks(sch,elapsed);
   $('#currentStintNo').textContent=phase==='PIT / CHANGEOVER'?`PIT→${cur+1}`:(cur+1);
   $('#projectedLaps').textContent=state.stints.reduce((a,b)=>a+b.laps,0); $('#projectedStints').textContent=`(${state.stints.length})`;
   updateCountdownDisplay();
-  updateDriverChangeCountdown();
 
   const startBtn=$('#startRaceBtn'),pauseBtn=$('#pauseRaceBtn'),pitBtn=$('#pitNowBtn');
   startBtn.disabled=!edit||state.runtime.status!=='PRE-RACE'; $('#countdownBtn').disabled=!edit||state.runtime.status!=='PRE-RACE'||state.runtime.countdownActive;
@@ -2582,8 +2588,13 @@ if(SR){
   $('#voiceBtn').onclick=()=>rec.start();
 }else{$('#voiceBtn').disabled=true;$('#voiceText').textContent='Direct voice recognition is unavailable here. Tap Voice text and use the iPhone keyboard microphone to dictate the command.'}
 
-// Dedicated countdown ticker: works smoothly on desktop, iOS and VIEW ONLY clients.
-setInterval(()=>{updateCountdownDisplay();updateDriverChangeCountdown()},250);
+// One timer samples the clock once for race remaining, server time, projected
+// finish, and the next change. It keeps working while an input has focus.
+setInterval(()=>{
+  const nowMs=Date.now();
+  updateCountdownDisplay(nowMs);
+  updateRaceClocks(schedule(),elapsedRaceSec(nowMs));
+},250);
 
 // Main race UI refresh.
 setInterval(()=>{
