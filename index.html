@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.19</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.20</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -132,7 +132,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
               <dt>+1 / −1 lap current</dt><dd>Adjusts the current stint target by one lap.</dd>
               <dt>Delay downstream</dt><dd>Moves future projected times later without changing completed timing.</dd>
               <dt>SERVER RESET / RESYNC</dt><dd>Reanchors the server clock and remaining time after a server restart.</dd>
-              <dt>Set Actual Start / Finish / FINISH NOW</dt><dd>Enter or correct an actual start or finish time. Tap FINISH NOW when the next driver goes on track; the planned pit time is counted once.</dd>
+              <dt>Set Actual Start / Finish / FINISH NOW</dt><dd>Enter an actual start, or enter the current on-track handover manually with Set Actual Finish. Tap FINISH NOW at that handover for one-tap entry. Corrected older finishes use pit-entry time.</dd>
               <dt>BRAKE PLAN</dt><dd>Plans brake changes and includes the extra 45 seconds at that stop.</dd>
               <dt>Reset race state</dt><dd>Resets race timing for everyone in this same shared session. It keeps the join code and schedule.</dd>
             </dl><h3>Shared session</h3><dl>
@@ -330,7 +330,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.19 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.20 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -709,10 +709,24 @@ async function editActualFinish(i){
   if(canEdit()&&state.runtime.status==='LIVE'&&i>state.runtime.currentIndex)catchUpDueStints();
   const latestVisible=canEdit()?state.runtime.currentIndex:effectiveCurrentIndex();
   if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>latestVisible)return;
-  const row=schedule()[i];
-  const irl=await modalAsk({title:`Stint ${i+1} actual IRL finish`,text:i===latestVisible?'Enter the actual IRL finish time as HH:MM:SS. Saving advances to the next stint from this exact time.':'Enter the corrected actual IRL finish as HH:MM:SS. Later projections recalculate automatically.',input:true,value:secToClock(row.finish),ok:'Save actual finish'});
+  const rows=schedule(),row=rows[i];
+  const handover=i===latestVisible&&i<rows.length-1&&state.runtime.status==='LIVE';
+  const irl=await modalAsk({title:`Stint ${i+1} actual IRL finish`,text:handover?'Enter the IRL time when the next driver went on track (HH:MM:SS). The configured pit time is counted once.':i===latestVisible?'Enter the final actual IRL finish time as HH:MM:SS.':'Enter the outgoing driver’s corrected pit-entry finish time as HH:MM:SS. A recorded next start stays fixed.',input:true,value:secToClock(handover?rows[i+1].start:row.finish),ok:'Save actual finish'});
   if(irl===null)return;
   const irlSec=parseClock(irl);if(irlSec===null){toast('Enter IRL time as HH:MM:SS.');return}
+  if(handover){
+    const handoverElapsed=nearestClock(irlSec,rows[i+1].start)-actualRaceStartClockSec();
+    const pit=Number(state.event.pitLossSec||0)+(state.stints[i].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0);
+    const finishElapsed=handoverElapsed-pit;
+    if(finishElapsed<row.startElapsed){toast('Handover time is too early for this stint and configured pit time.');return}
+    if(handoverElapsed>elapsedRaceSec()+5){toast('Current handover cannot be in the future.');return}
+    const finishClock=((Math.floor(actualRaceStartClockSec()+finishElapsed)%86400)+86400)%86400;
+    if(!canEdit())return requestTeamTiming('finish',i,finishClock,{handover:true});
+    catchUpDueStints();
+    if(i!==state.runtime.currentIndex||state.runtime.status!=='LIVE')return;
+    completeCurrentStint({finishOverrideElapsed:finishElapsed,irlFinishClock:actualRaceStartClockSec()+finishElapsed,handoverElapsed});
+    return;
+  }
   if(!canEdit())return requestTeamTiming('finish',i,irlSec);
   await setActualFinish(i,irlSec);
 }
@@ -2720,7 +2734,7 @@ const buttonHelp={
   saveBtn:'Save the current race to this device.',
   exportBtn:'Download a JSON backup of this race.',
   quickActualStartBtn:'Set the selected stint’s real IRL start time.',
-  quickActualFinishBtn:'Set the selected stint’s real IRL finish time.',
+  quickActualFinishBtn:'Enter the current on-track handover time manually. For an older completed stint, correct its pit-entry finish time.',
   quickActualNowBtn:'Tap when the next driver goes on track. The next start becomes NOW; the configured pit time is counted once. Available to every connected team member.',
   startRaceBtn:'Start the race clock and the first stint.',
   countdownBtn:'Start the pre-race countdown.',
