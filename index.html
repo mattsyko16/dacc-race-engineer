@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.18</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.19</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -106,7 +106,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <select id="actualStartStintSelect" aria-label="Stint for actual start"></select>
             <button id="quickActualStartBtn">Set Actual Start</button>
             <button id="quickActualFinishBtn">Set Actual Finish</button>
-            <button class="good" id="quickActualNowBtn">FINISH NOW (current)</button>
+            <button class="good" id="quickActualNowBtn">FINISH NOW (handover)</button>
           </div>
 
           <div class="toolbar">
@@ -132,7 +132,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
               <dt>+1 / −1 lap current</dt><dd>Adjusts the current stint target by one lap.</dd>
               <dt>Delay downstream</dt><dd>Moves future projected times later without changing completed timing.</dd>
               <dt>SERVER RESET / RESYNC</dt><dd>Reanchors the server clock and remaining time after a server restart.</dd>
-              <dt>Set Actual Start / Finish / FINISH NOW</dt><dd>Enter or correct an actual start or finish time. FINISH NOW ends the current stint at the tap and advances to the next driver.</dd>
+              <dt>Set Actual Start / Finish / FINISH NOW</dt><dd>Enter or correct an actual start or finish time. Tap FINISH NOW when the next driver goes on track; the planned pit time is counted once.</dd>
               <dt>BRAKE PLAN</dt><dd>Plans brake changes and includes the extra 45 seconds at that stop.</dd>
               <dt>Reset race state</dt><dd>Resets race timing for everyone in this same shared session. It keeps the join code and schedule.</dd>
             </dl><h3>Shared session</h3><dl>
@@ -330,7 +330,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.18 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.19 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -718,16 +718,21 @@ async function editActualFinish(i){
 }
 async function finishCurrentNow(){
   if(!canSubmitTiming()||state.runtime.status!=='LIVE')return;
-  // Use the race's IRL clock model so a driver's device timezone does not
-  // change the recorded time.
-  const i=effectiveCurrentIndex();
-  const irl=((Math.floor(actualRaceStartClockSec()+elapsedRaceSec())%86400)+86400)%86400;
-  // Reuse the existing finish relay so a driver on a phone can record the tap
-  // time and an already-open Race Control client publishes it for everyone.
-  if(!canEdit())return requestTeamTiming('finish',i,irl);
+  const i=effectiveCurrentIndex(),handoverElapsed=Math.floor(elapsedRaceSec());
+  const hasNext=i<state.stints.length-1;
+  const pit=hasNext?Number(state.event.pitLossSec||0)+(state.stints[i].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0):0;
+  const finishElapsed=handoverElapsed-pit;
+  const row=schedule()[i];
+  if(finishElapsed<row.startElapsed){toast('The handover is too early for the configured pit time. Use Set Actual Finish to correct it.');return}
+  // IRL time follows the shared race clock rather than the device timezone.
+  const irl=((Math.floor(actualRaceStartClockSec()+finishElapsed)%86400)+86400)%86400;
+  // Older Race Control clients still understand the finish timestamp. The
+  // optional handover flag lets updated clients also freeze the incoming start.
+  if(!canEdit())return requestTeamTiming('finish',i,irl,{handover:hasNext});
   catchUpDueStints();
   if(state.runtime.status!=='LIVE'||i!==state.runtime.currentIndex)return;
-  await setActualFinish(i,irl);
+  if(hasNext)completeCurrentStint({finishOverrideElapsed:finishElapsed,irlFinishClock:actualRaceStartClockSec()+finishElapsed,handoverElapsed});
+  else await setActualFinish(i,irl);
 }
 // Older open pages still send this request until they refresh. Keep its original
 // meaning so a mixed-version team does not silently change a start into a finish.
@@ -741,7 +746,7 @@ function effectiveCurrentIndex(sch=schedule(),elapsed=elapsedRaceSec()){
   const last=Math.max(0,sch.length-1);
   let i=Math.min(Math.max(0,state.runtime.currentIndex||0),last);
   if(state.runtime.status!=='LIVE'||state.runtime.autoAdvanceSuppressedIndex===i)return i;
-  while(i<last&&elapsed>=sch[i].finishElapsed)i++;
+  while(i<last&&elapsed>=sch[i+1].startElapsed)i++;
   return i;
 }
 function livePhase(sch){
@@ -749,7 +754,7 @@ function livePhase(sch){
   if(state.runtime.status==='PRE-RACE') return 'PRE-RACE';
   if(state.runtime.status==='FINISHED') return 'FINISHED';
   const elapsed=elapsedRaceSec(),cur=effectiveCurrentIndex(sch,elapsed),r=sch[cur];
-  if(r&&elapsed<r.startElapsed) return 'PIT / CHANGEOVER';
+  if(r&&(elapsed<r.startElapsed||(sch[cur+1]&&elapsed>=r.finishElapsed&&elapsed<sch[cur+1].startElapsed))) return 'PIT / CHANGEOVER';
   if(elapsed>=state.event.raceHours*3600) return 'FINISHED';
   return state.runtime.status;
 }
@@ -802,7 +807,7 @@ function driverChangeCountdownModel(sch=schedule(),elapsed=elapsedRaceSec()){
   const cur=status==='PRE-RACE'?0:effectiveCurrentIndex(sch,elapsed);
   const row=sch[cur],next=sch[cur+1];
   if(!row||!next)return {seconds:null,tone:'none',urgent:false,target:'No further driver change'};
-  const seconds=Math.max(0,row.finishElapsed-(status==='PRE-RACE'?0:elapsed));
+  const seconds=Math.max(0,next.startElapsed-(status==='PRE-RACE'?0:elapsed));
   const tone=seconds>1200?'green':seconds>300?'yellow':'red';
   const autoPaused=state.runtime.autoAdvanceSuppressedIndex===state.runtime.currentIndex;
   return {seconds,tone,urgent:seconds<=0||autoPaused,autoPaused,target:autoPaused?'AUTO ADVANCE PAUSED after undo — use PIT NOW or Advance stint':`Pit ${secToClock(row.finish)} • ${label(next.driver)} handover ${secToClock(next.start)}`};
@@ -815,7 +820,7 @@ function updateDriverChangeCountdown(sch=schedule(),elapsed=elapsedRaceSec()){
   if(result.tone!=='none')box.classList.add(`change-${result.tone}`);
   if(result.urgent)box.classList.add('change-urgent');
   el.textContent=result.seconds===null?'—':fmtSec(Math.ceil(result.seconds));
-  target.textContent=result.autoPaused?result.target:result.urgent?'PIT DUE NOW — advance stint or record next actual start':result.target;
+  target.textContent=result.autoPaused?result.target:result.urgent?'HANDOVER DUE NOW — advance stint or record next actual start':result.target;
 }
 
 function raceRemainingSec(elapsed=elapsedRaceSec()){
@@ -1558,7 +1563,7 @@ function render(){
   $('#quickActualStartBtn').disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualFinishBtn').disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualNowBtn').disabled=state.runtime.status!=='LIVE'||Number(actualSelect.value)!==cur;
-  $('#actualStartHelp').textContent=state.runtime.status==='PRE-RACE'?'Available after the race starts.':!edit?'Any connected driver can set times. Keep a Race Control laptop open to publish the change to everyone.':'Choose the current or a completed stint; server start/finish is calculated automatically.';
+  $('#actualStartHelp').textContent=state.runtime.status==='PRE-RACE'?'Available after the race starts.':!edit?'Tap FINISH NOW when the next driver goes on track. Keep a Race Control laptop open to publish it.':'Tap FINISH NOW at the on-track handover; use Set Actual Finish for a manual correction.';
 
   const tbody=$('#stintTable tbody');tbody.innerHTML='';
   sch.forEach((r,i)=>{
@@ -1574,7 +1579,7 @@ function render(){
       <td style="text-align:center"><input type="checkbox" data-brake="${i}" ${r.brakeChangeAfter?'checked':''} ${locked?'disabled':''} title="Change brakes at the end of this stint (+45 seconds to pit time)"></td>
       <td style="text-align:center"><input class="lockbox" type="checkbox" data-lock="${i}" ${state.stints[i].locked?'checked':''} ${(!edit||(state.runtime.status!=='PRE-RACE'&&i<=cur))?'disabled':''} title="Keep this stint unchanged when regenerating"></td>
       <td>${secToClock(r.start)}${r.isActualStart?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.finish)}</td><td>${secToClock(r.serverStart)}${Number.isFinite(state.runtime.serverHistory?.[i]?.serverStart)?' <span class="actualbadge">ACTUAL</span>':''}</td><td>${secToClock(r.serverFinish)}</td>
-      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status==='LIVE'?` <button data-now="${i}" ${!canSubmitTiming()?'disabled':''}>FINISH NOW</button>`:''}</td>
+      <td>${fmtSec(r.remaining)}</td><td>${rowState}</td><td class="stintactions"><button data-actual="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Start</button> <button data-actual-finish="${i}" ${(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>cur)?'disabled':''}>Set Actual Finish</button>${i===cur&&state.runtime.status==='LIVE'?` <button data-now="${i}" title="Tap when the next driver goes on track; pit time is counted once" ${!canSubmitTiming()?'disabled':''}>FINISH NOW</button>`:''}</td>
       <td><div class="rowbtns">
         <button data-up="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur+1))?'disabled':''}>↑</button>
         <button data-down="${i}" ${(!edit || (state.runtime.status!=='PRE-RACE' && i<=cur))?'disabled':''}>↓</button>
@@ -1997,11 +2002,11 @@ async function undoLastAdvance(){
   commitState();render();
   toast(`${driver} restored. Use PIT NOW or Advance stint when the change actually happens.`,6000);
 }
-function completeCurrentStint({automatic=false,finishOverrideElapsed=null,irlFinishClock=null}={}){
+function completeCurrentStint({automatic=false,finishOverrideElapsed=null,irlFinishClock=null,handoverElapsed=null}={}){
   if(!canEdit()||state.runtime.status!=='LIVE')return;
   const i=state.runtime.currentIndex,sch=schedule(),elapsed=elapsedRaceSec(),r=sch[i];
   if(!r||elapsed<r.startElapsed)return;
-  if(automatic&&elapsed<r.finishElapsed)return;
+  if(automatic&&elapsed<(sch[i+1]?.startElapsed??r.finishElapsed))return;
   if(!automatic){
     const toIndex=Math.min(state.stints.length-1,i+1);
     state.runtime.lastManualAdvanceUndo={
@@ -2026,11 +2031,18 @@ function completeCurrentStint({automatic=false,finishOverrideElapsed=null,irlFin
   };
   state.runtime.serverRemainingHistory ||= {};
   state.runtime.serverRemainingHistory[i]=r.remaining;
-  addLog(`${automatic?'AUTO ADVANCE':Number.isFinite(finishOverrideElapsed)?'ACTUAL FINISH':'PIT NOW'} — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(finishElapsed)}`,false);
+  addLog(`${automatic?'AUTO ADVANCE':Number.isFinite(handoverElapsed)?'HANDOVER NOW':Number.isFinite(finishOverrideElapsed)?'ACTUAL FINISH':'PIT NOW'} — stint ${i+1} ${label(r.driver)} ended at race ${fmtSec(finishElapsed)}`,false);
   if(i>=state.stints.length-1){state.runtime.status='FINISHED';addLog('Final stint complete — FINISHED',false)}
   else{
     const next=i+1;state.runtime.currentIndex=next;
     const changeoverSec=Number(state.event.pitLossSec||0)+(r.brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0);
+    if(Number.isFinite(handoverElapsed)){
+      const actual=state.runtime.actualStints[next] ||= {};
+      actual.startElapsed=handoverElapsed;
+      actual.irlStartClock=actualRaceStartClockSec()+handoverElapsed;
+      state.runtime.serverHistory[next] ||= {};
+      state.runtime.serverHistory[next].serverStart=anchorBase+(handoverElapsed-anchorElapsed);
+    }
     addLog(`Next: ${label(state.stints[next].driver)} after ${changeoverSec}s pit/changeover${r.brakeChangeAfter?' (includes +45s brake change)':''}`,false);
   }
   commitState();render();
@@ -2041,7 +2053,8 @@ function autoAdvanceDueStint(){
   if(!canEdit()||state.runtime.status!=='LIVE')return false;
   if(state.runtime.autoAdvanceSuppressedIndex===state.runtime.currentIndex)return false;
   const row=schedule()[state.runtime.currentIndex];
-  if(!row||elapsedRaceSec()<row.finishElapsed)return false;
+  const boundary=schedule()[state.runtime.currentIndex+1]?.startElapsed??row?.finishElapsed;
+  if(!row||elapsedRaceSec()<boundary)return false;
   return completeCurrentStint({automatic:true})===true
 }
 function catchUpDueStints(){
@@ -2110,10 +2123,10 @@ async function broadcastTeamTiming(request){
   });
   if(!response.ok)throw new Error(`Team timing relay unavailable (HTTP ${response.status})`);
 }
-async function requestTeamTiming(action,index,irlClock){
+async function requestTeamTiming(action,index,irlClock,extra={}){
   if(!shared.supabase||!shared.code){toast('Join the shared race to submit a time.');return false}
   const id=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const request={id,action,index,irlClock,createdAt:Date.now()};
+  const request={id,action,index,irlClock,createdAt:Date.now(),...extra};
   try{await broadcastTeamTiming(request)}catch(err){console.warn(err);toast(`Time was not submitted: ${err.message}`,6000);return false}
   toast('Time sent. Waiting for Race Control laptop to publish it…',5000);
   for(let attempt=0;attempt<16;attempt++){
@@ -2126,7 +2139,7 @@ async function requestTeamTiming(action,index,irlClock){
 }
 async function handleTeamTimingRequest(request){
   if(!shared.isController||!shared.code||!teamTimingRelay.ready||!request||typeof request!=='object')return;
-  const {id,action,index,irlClock,createdAt}=request;
+  const {id,action,index,irlClock,createdAt,handover}=request;
   if(typeof id!=='string'||id.length>100||!['start','finish','now'].includes(action)||
      !Number.isInteger(index)||!Number.isFinite(createdAt)||Math.abs(Date.now()-createdAt)>30000||
      (action!=='now'&&(!Number.isInteger(irlClock)||irlClock<0||irlClock>=86400)))return;
@@ -2151,12 +2164,21 @@ async function handleTeamTimingRequest(request){
       const row=schedule()[index],finish=nearestClock(irlClock,row.finish)-actualRaceStartClockSec();
       if(finish<row.startElapsed||(index===cur&&finish>elapsedRaceSec()+5)||
          (index<cur&&Number.isFinite(state.runtime.actualStints[index+1]?.startElapsed)&&finish>state.runtime.actualStints[index+1].startElapsed))return;
+      if(handover&&index===cur&&index<state.stints.length-1){
+        const pit=Number(state.event.pitLossSec||0)+(state.stints[index].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0);
+        if(finish+pit>elapsedRaceSec()+5)return;
+      }
     }
     state.runtime.teamTimingReceipts ||= {};
     state.runtime.teamTimingReceipts[id]=Date.now();
     const ids=Object.keys(state.runtime.teamTimingReceipts);
     for(const old of ids.slice(0,Math.max(0,ids.length-30)))delete state.runtime.teamTimingReceipts[old];
     if(action==='start')await setActualStart(index,irlClock);
+    else if(action==='finish'&&handover&&index===cur&&index<state.stints.length-1){
+      const row=schedule()[index],finish=nearestClock(irlClock,row.finish)-actualRaceStartClockSec();
+      const pit=Number(state.event.pitLossSec||0)+(state.stints[index].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0);
+      completeCurrentStint({finishOverrideElapsed:finish,irlFinishClock:actualRaceStartClockSec()+finish,handoverElapsed:finish+pit});
+    }
     else if(action==='finish')await setActualFinish(index,irlClock);
     else await setCurrentStartNow();
     if(!await commitState({immediate:true}))delete state.runtime.teamTimingReceipts[id];
@@ -2699,7 +2721,7 @@ const buttonHelp={
   exportBtn:'Download a JSON backup of this race.',
   quickActualStartBtn:'Set the selected stint’s real IRL start time.',
   quickActualFinishBtn:'Set the selected stint’s real IRL finish time.',
-  quickActualNowBtn:'Finish the current stint at the tap, then move to the next driver after the pit/changeover. Available to every connected team member.',
+  quickActualNowBtn:'Tap when the next driver goes on track. The next start becomes NOW; the configured pit time is counted once. Available to every connected team member.',
   startRaceBtn:'Start the race clock and the first stint.',
   countdownBtn:'Start the pre-race countdown.',
   countdownSetBtn:'Choose the pre-race countdown length.',
