@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.15</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.16</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -330,7 +330,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.3 • qualifying and practice availability • team Actual Stint Timing • no database changes.</footer>
+  <footer>DACC Race Engineer V5.4.16 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -672,7 +672,8 @@ async function setActualStart(i,irlClock,{syncRemainingToMain=false}={}){
 }
 async function editActualStart(i){
   if(canEdit()&&state.runtime.status==='LIVE'&&i>state.runtime.currentIndex)catchUpDueStints();
-  if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
+  const latestVisible=canEdit()?state.runtime.currentIndex:effectiveCurrentIndex();
+  if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>latestVisible)return;
   const row=schedule()[i];
   const irl=await modalAsk({title:`Stint ${i+1} actual IRL start`,text:'Enter actual IRL time as HH:MM:SS. The server time is calculated automatically.',input:true,value:secToClock(row.start),ok:'Save actual start'});
   if(irl===null)return;
@@ -706,9 +707,10 @@ async function setActualFinish(i,irlClock){
 }
 async function editActualFinish(i){
   if(canEdit()&&state.runtime.status==='LIVE'&&i>state.runtime.currentIndex)catchUpDueStints();
-  if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>state.runtime.currentIndex)return;
+  const latestVisible=canEdit()?state.runtime.currentIndex:effectiveCurrentIndex();
+  if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||i>latestVisible)return;
   const row=schedule()[i];
-  const irl=await modalAsk({title:`Stint ${i+1} actual IRL finish`,text:i===state.runtime.currentIndex?'Enter the actual IRL finish time as HH:MM:SS. Saving advances to the next stint from this exact time.':'Enter the corrected actual IRL finish as HH:MM:SS. Later projections recalculate automatically.',input:true,value:secToClock(row.finish),ok:'Save actual finish'});
+  const irl=await modalAsk({title:`Stint ${i+1} actual IRL finish`,text:i===latestVisible?'Enter the actual IRL finish time as HH:MM:SS. Saving advances to the next stint from this exact time.':'Enter the corrected actual IRL finish as HH:MM:SS. Later projections recalculate automatically.',input:true,value:secToClock(row.finish),ok:'Save actual finish'});
   if(irl===null)return;
   const irlSec=parseClock(irl);if(irlSec===null){toast('Enter IRL time as HH:MM:SS.');return}
   if(!canEdit())return requestTeamTiming('finish',i,irlSec);
@@ -716,7 +718,7 @@ async function editActualFinish(i){
 }
 async function setCurrentStartNow(){
   if(!canSubmitTiming()||state.runtime.status==='PRE-RACE'||state.runtime.status==='FINISHED')return;
-  if(!canEdit())return requestTeamTiming('now',state.runtime.currentIndex,null);
+  if(!canEdit())return requestTeamTiming('now',effectiveCurrentIndex(),null);
   catchUpDueStints();
   if(state.runtime.status==='FINISHED')return;
   const i=state.runtime.currentIndex;
@@ -1527,10 +1529,13 @@ function render(){
   const rosterSource=state.planning?.rosterSource,settingsSource=state.planning?.settingsSource;$('#rosterMeta').textContent=rosterSource?`Event roster: ${state.drivers.map(d=>d.label).join(', ')} • ${rosterSource.sheet} • ${new Date(rosterSource.importedAt).toLocaleString()}${settingsSource?' • Planning limits from '+settingsSource.sheet:''}`:`Current event drivers: ${state.drivers.map(d=>d.label).join(', ')}. Import remains review-only until confirmed.`;
   $('#refreshPrepBtn').disabled=!edit;
 
-  const actualSelect=$('#actualStartStintSelect'),selectedActual=actualSelect.dataset.ready==='1'?Number(actualSelect.value):cur;
+  const actualSelect=$('#actualStartStintSelect');
+  const previousCurrent=Number(actualSelect.dataset.current);
+  const followedCurrent=actualSelect.dataset.ready==='1'&&Number(actualSelect.value)===previousCurrent;
+  const selectedActual=actualSelect.dataset.ready==='1'&&!followedCurrent?Number(actualSelect.value):cur;
   actualSelect.innerHTML=sch.slice(0,cur+1).map((r,i)=>`<option value="${i}">Stint ${i+1} • ${escapeHtml(label(r.driver))}${i===cur?' • CURRENT':' • COMPLETED'}</option>`).join('');
   actualSelect.value=Number.isInteger(selectedActual)&&selectedActual>=0&&selectedActual<=cur?String(selectedActual):String(cur);
-  actualSelect.dataset.ready='1';
+  actualSelect.dataset.ready='1';actualSelect.dataset.current=String(cur);
   actualSelect.disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualStartBtn').disabled=state.runtime.status==='PRE-RACE';
   $('#quickActualFinishBtn').disabled=state.runtime.status==='PRE-RACE';
@@ -2117,6 +2122,9 @@ async function handleTeamTimingRequest(request){
     if(!latest)return;
     if(latest.updated_at!==shared.lastUpdated)applyRemote(latest.state,latest.updated_at);
     if(state.runtime.teamTimingReceipts?.[id])return;
+    // A viewer can see the calculated next stint before a controller has
+    // published the planned handover. Catch the controller up first.
+    if(state.runtime.status==='LIVE')catchUpDueStints();
     const cur=state.runtime.currentIndex;
     if(state.runtime.status==='PRE-RACE'||index<0||index>cur||index>=state.stints.length||
        (action==='now'&&(index!==cur||state.runtime.status==='FINISHED')))return;
