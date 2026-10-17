@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.22</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.23</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -330,7 +330,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.22 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.23 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -1201,15 +1201,42 @@ async function buildMasterPrepWorkbook(file,sourceBook){
       return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',prep.pitStrategy||'',prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
     });
     const oldPrep=sourceBook.sheets['Stints & Prep']||[];
+    const oldByStint=new Map(oldPrep.map(row=>[Number(String(row.cells.B||'').match(/^Stint\s+(\d+)$/i)?.[1]),row]).filter(([number])=>Number.isInteger(number)&&number>0));
+    const oldByDriver=new Map();
+    for(const row of oldPrep){
+      const driver=canonicalDriverId(row.cells.C);
+      if(!driver)continue;
+      const setup=oldByDriver.get(driver)||{};
+      for(let column=19;column<=24;column++){
+        const key=excelColumnName(column),value=row.cells[key];
+        if(!String(setup[key]??'').trim()&&String(value??'').trim())setup[key]=value;
+      }
+      oldByDriver.set(driver,setup);
+    }
+    const usedSourceStints=new Set();
     for(let index=0;index<outputRows.length;index++){
-      const old=oldPrep.find(row=>String(row.cells.B||'').trim().toLowerCase()===`stint ${index+1}`);
+      const sourceNumber=state.stints[index].workbookStintNo||index+1;
+      const old=oldByStint.get(sourceNumber);
       if(!old)continue;
-      const sourceValues=Array.from({length:19},(_,offset)=>String(old.cells[excelColumnName(offset+11)]||'').trim());
-      if(!sourceValues.some(Boolean))continue;
-      if(canonicalDriverId(old.cells.C)!==canonicalDriverId(outputRows[index][2]) && state.prep?.source?.name!==file.name)
-        throw new Error(`Stint ${index+1} has prep for a different driver in the master. Publish the existing prep first, then update the schedule.`);
-      if(canonicalDriverId(old.cells.C)===canonicalDriverId(outputRows[index][2]))
-        for(let column=11;column<30;column++)if(String(old.cells[excelColumnName(column)]||'').trim()&&(state.prep?.source?.name!==file.name||!String(outputRows[index][column]??'').trim()))outputRows[index][column]=old.cells[excelColumnName(column)];
+      const hasPrep=Array.from({length:19},(_,offset)=>String(old.cells[excelColumnName(offset+11)]||'').trim()).some(Boolean);
+      if(!hasPrep)continue;
+      if(usedSourceStints.has(sourceNumber))throw new Error(`Two stints refer to master prep row ${sourceNumber}. Publish Prep Data again before updating the master.`);
+      usedSourceStints.add(sourceNumber);
+      const sameDriver=canonicalDriverId(old.cells.C)===canonicalDriverId(outputRows[index][2]);
+      // The original workbook row follows the stint when it moves. A changed driver gets
+      // that driver's setup, while fuel, strategy, pressures and notes stay with the stint.
+      for(let column=11;column<30;column++){
+        if(column===18||(!sameDriver&&column>=19&&column<=24))continue; // Brake flag is controlled by the app; T:Y are driver setup.
+        const value=old.cells[excelColumnName(column)];
+        if(String(value??'').trim())outputRows[index][column]=value;
+      }
+      if(!sameDriver){
+        const baseline=oldByDriver.get(canonicalDriverId(outputRows[index][2]));
+        if(baseline)for(let column=19;column<=24;column++){
+          const value=baseline[excelColumnName(column)];
+          if(String(value??'').trim())outputRows[index][column]=value;
+        }
+      }
     }
     const zip=await window.JSZip.loadAsync(await file.arrayBuffer());
     const workbookPart=zip.file('xl/workbook.xml'),relationshipsPart=zip.file('xl/_rels/workbook.xml.rels');
@@ -1293,6 +1320,8 @@ async function updateMasterPrepWorkbook(){
     const numbered=prep.filter(row=>/^Stint\s+\d+$/i.test(row.cells.B||''));
     if(numbered.length!==stintCount||!prep.some(row=>Object.values(row.cells).includes('DACC_RACE_ENGINEER_PREP_V1')))
       throw new Error('The file was written, but the stint sheet could not be verified. Use the downloaded backup if needed.');
+    state.stints.forEach((st,index)=>{st.workbookStintNo=index+1});
+    commitState();
     const input=$('#prepWorkbook'),transfer=new DataTransfer();transfer.items.add(updated);input.files=transfer.files;workbookCache=null;
     await loadWorkbookChoices();
     $('#prepExportMeta').textContent=`Master updated: ${file.name} • ${stintCount} stints. Safety backup downloaded as ${backupName}. Wait for OneDrive to sync before drivers edit.`;
