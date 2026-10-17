@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.23</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.24</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -330,7 +330,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.23 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.24 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -1029,7 +1029,20 @@ function notifyFromRemote(prev,next){
   const nextDrv=next.stints?.[ni+1],prevNext=prev.stints?.[pi+1];
   if(nextDrv?.brakeChangeAfter&&(!prevNext?.brakeChangeAfter||ni!==pi))notifyRace('DACC brake change',`${label(nextDrv.driver)}: change brakes at end of your upcoming stint`);
 }
-function prepForStint(st){return {...(state.prep?.driverBaselines?.[st.driver]||{}),...(st.driverSetupOverride||{}),...(st.prepOverrides||{})}}
+function prepForStint(st,index=state.stints.indexOf(st)){
+  const prep={...(state.prep?.driverBaselines?.[st.driver]||{}),...(st.driverSetupOverride||{}),...(st.prepOverrides||{})};
+  if(index>=0)prep.pitStrategy=String(index+1);
+  return prep;
+}
+const TIME_OF_DAY_PREP=['serverTemp','airTemp','trackTemp'];
+function slotTemperatures(st){return Object.fromEntries(TIME_OF_DAY_PREP.map(key=>[key,st.prepOverrides?.[key]]))}
+function setSlotTemperatures(st,values){
+  st.prepOverrides ||= {};
+  for(const key of TIME_OF_DAY_PREP){
+    if(values[key]===undefined)delete st.prepOverrides[key];
+    else st.prepOverrides[key]=values[key];
+  }
+}
 function prepValue(v){return v===undefined||v===null||v===''?'—':String(v)}
 function renderNextPrep(st){
   const el=$('#nextPrep'),wasOpen=!!el.querySelector('details')?.open;el.replaceChildren();
@@ -1183,7 +1196,7 @@ function workbookDriverIdentity(rawName){
 }
 function prepFromCells(c){
   const setup={bb:c.V,tc:c.W,tc2:c.X,abs:c.Y,frontDuct:c.T,rearDuct:c.U};
-  const stint={fuel:c.Q,fuelPerLap:c.R,pitStrategy:c.P,serverTemp:c.L,airTemp:c.M,trackTemp:c.N,brakeInstruction:c.S,notes:c.AD,lf:c.Z,rf:c.AA,lr:c.AB,rr:c.AC};
+  const stint={fuel:c.Q,fuelPerLap:c.R,serverTemp:c.L,airTemp:c.M,trackTemp:c.N,brakeInstruction:c.S,notes:c.AD,lf:c.Z,rf:c.AA,lr:c.AB,rr:c.AC};
   return {setup:Object.fromEntries(Object.entries(setup).filter(([,v])=>v!==undefined&&v!=='')),stint:Object.fromEntries(Object.entries(stint).filter(([,v])=>v!==undefined&&v!==''))};
 }
 function xmlEscape(value){return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
@@ -1195,10 +1208,10 @@ function xlsxCell(ref,value,style=2){
 function xlsxRow(number,values,styles=[]){return `<row r="${number}">${values.map((value,index)=>xlsxCell(`${excelColumnName(index)}${number}`,value,styles[index]??2)).join('')}</row>`}
 function safeFilePart(value){return String(value||'Race').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,100)||'Race'}
 async function buildMasterPrepWorkbook(file,sourceBook){
-    const rows=schedule(),headers=['Order','Stint','Driver','Target laps','Projected IRL start','Projected IRL finish','Projected server start','Projected server finish','Driving time','Preceding pit / changeover','Availability','Server temp','Air temp','Track temp','Load note','Pit strategy / load profile','Fuel (L)','Fuel / lap (L)','Brake change after','Front ducts','Rear ducts','BB','TC','TC2','ABS','LF PSI','RF PSI','LR PSI','RR PSI','Notes'];
+    const rows=schedule(),headers=['Order','Stint','Driver','Target laps','Projected IRL start','Projected IRL finish','Projected server start','Projected server finish','Driving time','Preceding pit / changeover','Availability','Server temp','Air temp','Track temp','Load note','Pit Strat #','Fuel (L)','Fuel / lap (L)','Brake change after','Front ducts','Rear ducts','BB','TC','TC2','ABS','LF PSI','RF PSI','LR PSI','RR PSI','Notes'];
     const outputRows=rows.map((row,index)=>{
       const stint=state.stints[index],prep=prepForStint(stint),preceding=index?Number(state.event.pitLossSec||0)+(state.stints[index-1].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0):0;
-      return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',prep.pitStrategy||'',prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
+      return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',index+1,prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
     });
     const oldPrep=sourceBook.sheets['Stints & Prep']||[];
     const oldByStint=new Map(oldPrep.map(row=>[Number(String(row.cells.B||'').match(/^Stint\s+(\d+)$/i)?.[1]),row]).filter(([number])=>Number.isInteger(number)&&number>0));
@@ -1215,6 +1228,13 @@ async function buildMasterPrepWorkbook(file,sourceBook){
     }
     const usedSourceStints=new Set();
     for(let index=0;index<outputRows.length;index++){
+      // Temperatures describe this time-of-day slot, regardless of which driver moved into it.
+      const slotRow=oldByStint.get(index+1);
+      if(slotRow)for(let column=11;column<=13;column++){
+        const value=slotRow.cells[excelColumnName(column)];
+        if(String(value??'').trim())outputRows[index][column]=value;
+      }
+      outputRows[index][15]=index+1; // Pit Strat is always the numbered stint slot.
       const sourceNumber=state.stints[index].workbookStintNo||index+1;
       const old=oldByStint.get(sourceNumber);
       if(!old)continue;
@@ -1223,10 +1243,10 @@ async function buildMasterPrepWorkbook(file,sourceBook){
       if(usedSourceStints.has(sourceNumber))throw new Error(`Two stints refer to master prep row ${sourceNumber}. Publish Prep Data again before updating the master.`);
       usedSourceStints.add(sourceNumber);
       const sameDriver=canonicalDriverId(old.cells.C)===canonicalDriverId(outputRows[index][2]);
-      // The original workbook row follows the stint when it moves. A changed driver gets
-      // that driver's setup, while fuel, strategy, pressures and notes stay with the stint.
+      // Fuel, load notes, pressures and notes follow the stint. Temperatures stay
+      // with the numbered time slot, and Pit Strat is generated from its new order.
       for(let column=11;column<30;column++){
-        if(column===18||(!sameDriver&&column>=19&&column<=24))continue; // Brake flag is controlled by the app; T:Y are driver setup.
+        if((column>=11&&column<=13)||column===15||column===18||(!sameDriver&&column>=19&&column<=24))continue; // Brake flag is controlled by the app; T:Y are driver setup.
         const value=old.cells[excelColumnName(column)];
         if(String(value??'').trim())outputRows[index][column]=value;
       }
@@ -1665,7 +1685,9 @@ function render(){
     const i=+x.dataset.del;
     const cur=state.runtime.currentIndex;
     if(state.runtime.status!=='PRE-RACE' && i<=cur) return;
+    const temperatures=state.stints.map(slotTemperatures);
     state.stints.splice(i,1);
+    state.stints.forEach((st,index)=>setSlotTemperatures(st,temperatures[index]));
     commitState();
     render();
   });
@@ -1695,7 +1717,10 @@ function move(i,d){
     if(i<=cur || j<=cur) return;
   }
 
+  const firstTemp=slotTemperatures(state.stints[i]),secondTemp=slotTemperatures(state.stints[j]);
   [state.stints[i],state.stints[j]]=[state.stints[j],state.stints[i]];
+  setSlotTemperatures(state.stints[i],firstTemp);
+  setSlotTemperatures(state.stints[j],secondTemp);
   addLog(`Reordered future stints: ${i+1} ↔ ${j+1}`,false);
   commitState();
   render();
