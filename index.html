@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.24</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.25</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -287,13 +287,14 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="sidegrid">
             <div class="field"><label>IRL race start</label><input id="irlStart" type="time"/></div>
             <div class="field"><label>Server start time</label><input id="serverStart" type="time" step="1"/></div>
+            <div class="field"><label>Server time multiplier</label><input id="serverTimeMultiplier" type="number" min="0.25" max="60" step="0.25" inputmode="decimal"/><div class="sub">Server time of day (Barcelona: 2×). Race remaining stays in real time.</div></div>
             <div class="field"><label>Pit loss (sec)</label><input id="pitLossSec" type="number" step="1"/></div>
             <div class="field"><label>Race hours</label><input id="raceHours" type="number" step="1"/></div>
             <div class="field"><label>Planning avg lap (sec)</label><input id="planAvgLapSec" type="number" step=".1"/></div>
             <div class="field" style="grid-column:1/-1"><label>SimBot live timing URL for this round</label><input id="simbotUrlInput" type="text" placeholder="Paste the full SimBot Live Laps link"/></div>
           </div>
           <div class="toolbar"><button id="recalcBtn">Recalculate schedule</button></div>
-          <div class="sub">Save the SimBot URL with Recalculate schedule. It is shared with the race so every device follows the same timing source.</div>
+          <div class="sub">Press Recalculate schedule to share the server time multiplier and other timing settings with every device. Update Master Prep Sheet to write the new server times to Excel.</div>
           <div id="availWarning" class="warning hidden"></div>
         </div>
       </section>
@@ -330,7 +331,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.24 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.25 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -355,8 +356,14 @@ const fmtSec=s=>{
   s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
   return `${pad(h)}:${pad(m)}:${pad(sec)}`
 };
-const timeToSec=t=>{const [h,m]=String(t||'00:00').split(':').map(Number);return (h||0)*3600+(m||0)*60};
+const timeToSec=t=>{const [h,m,s]=String(t||'00:00').split(':').map(Number);return (h||0)*3600+(m||0)*60+(s||0)};
 const secToClock=s=>{s=((s%86400)+86400)%86400;return `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(Math.floor(s%60))}`};
+function serverTimeMultiplier(){const n=Number(state.event?.serverTimeMultiplier);return Number.isFinite(n)&&n>0?n:1}
+function serverClockForElapsed(elapsed){
+  const base=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
+  const anchor=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
+  return base+(elapsed-anchor)*serverTimeMultiplier();
+}
 const deepClone=o=>JSON.parse(JSON.stringify(o));
 const BRAKE_CHANGE_EXTRA_SEC=45;
 const cfg=window.DACC_CONFIG||{};
@@ -399,6 +406,8 @@ const teamTimingRelay={socket:null,heartbeat:null,reconnect:null,seen:new Set(),
 const canSubmitTiming=()=>canEdit() || !!(shared.supabase&&shared.code);
 
 function migrateRuntime(){
+  const factor=Number(state.event?.serverTimeMultiplier);
+  state.event.serverTimeMultiplier=Number.isFinite(factor)&&factor>0?factor:1;
   state.runtime ||= {};
   const r=state.runtime;
   if(!r.status) r.status='PRE-RACE';
@@ -603,7 +612,7 @@ function stintAvailabilityEnd(index,count,startSec,finishSec){
 function schedule(){
   const e=state.event, lap=e.avgLapSec, pit=e.pitLossSec, live=state.runtime.status!=='PRE-RACE';
   const baseClock=live?actualRaceStartClockSec():timeToSec(e.irlStart);
-  const serverBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(e.serverStart);
+  const serverRate=serverTimeMultiplier();
   const serverAnchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   const rows=[];
   state.stints.forEach((st,i)=>{
@@ -619,9 +628,9 @@ function schedule(){
     const irlStart=Number.isFinite(actual.irlStartClock)?actual.irlStartClock:baseClock+startElapsed;
     const irlFinish=Number.isFinite(actual.irlFinishClock)?actual.irlFinishClock:baseClock+finishElapsed;
     const hist=state.runtime.serverHistory?.[i];
-    const computedServerStart=serverBase+(startElapsed-serverAnchorElapsed);
+    const computedServerStart=serverClockForElapsed(startElapsed);
     const serverStart=Number.isFinite(hist?.serverStart)?hist.serverStart:computedServerStart;
-    const serverFinish=Number.isFinite(hist?.serverFinish)?hist.serverFinish:serverStart+drive;
+    const serverFinish=Number.isFinite(hist?.serverFinish)?hist.serverFinish:serverStart+drive*serverRate;
     const savedRemaining=Number(state.runtime.serverRemainingHistory?.[i]);
     const anchorStint=state.runtime.serverRemainingAnchorStintIndex;
     const remaining=Number.isFinite(savedRemaining)
@@ -659,9 +668,7 @@ async function setActualStart(i,irlClock,{syncRemainingToMain=false}={}){
   const a=state.runtime.actualStints[i] ||= {};
   const irl=nearestClock(irlClock,old[i].start);
   a.irlStartClock=irl;a.startElapsed=irl-actualRaceStartClockSec();
-  const anchorBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
-  const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
-  const server=anchorBase+(a.startElapsed-anchorElapsed);
+  const server=serverClockForElapsed(a.startElapsed);
   state.runtime.serverHistory[i] ||= {};state.runtime.serverHistory[i].serverStart=server;
   if(syncRemainingToMain){
     state.runtime.serverRemainingHistory ||= {};
@@ -696,12 +703,10 @@ async function setActualFinish(i,irlClock){
   }
   const a=state.runtime.actualStints[i] ||= {};
   a.finishElapsed=finishElapsed;a.irlFinishClock=irl;
-  const anchorBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
-  const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   state.runtime.serverHistory ||= {};
   state.runtime.serverHistory[i] ||= {};
   state.runtime.serverHistory[i].serverStart ??= row.serverStart;
-  state.runtime.serverHistory[i].serverFinish=Math.max(state.runtime.serverHistory[i].serverStart,anchorBase+(finishElapsed-anchorElapsed));
+  state.runtime.serverHistory[i].serverFinish=Math.max(state.runtime.serverHistory[i].serverStart,serverClockForElapsed(finishElapsed));
   addLog(`Actual finish corrected: stint ${i+1} ${label(state.stints[i].driver)} • IRL ${secToClock(irl)} • server ${secToClock(state.runtime.serverHistory[i].serverFinish)}`,false);
   commitState();render();toast('Actual stint finish saved; later projections recalculated.');
 }
@@ -855,18 +860,16 @@ function clockDisplayElapsed(elapsed){
 // a driver is typing and the rest of the screen deliberately avoids rerendering.
 function updateRaceClocks(sch=schedule(),elapsed=elapsedRaceSec()){
   const e=state.event;
-  const serverNowAnchor=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   const displayElapsed=clockDisplayElapsed(elapsed);
   const remainingNow=raceRemainingSec(displayElapsed);
   const remainingDisplay=Math.ceil(remainingNow);
   $('#raceRemaining').textContent=fmtSec(remainingDisplay);
-  const serverNowBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(e.serverStart);
-  const serverNow=serverNowBase+(displayElapsed-serverNowAnchor);
+  const serverNow=serverClockForElapsed(displayElapsed);
   $('#serverClock').textContent=secToClock(serverNow);
   const lastRow=sch.at(-1);
   // One live server-clock sample drives the forecast and the race countdown.
   const projectedRemaining=(lastRow?.finishElapsed||0)-displayElapsed;
-  $('#plannedFinish').textContent=secToClock(serverNow+projectedRemaining);
+  $('#plannedFinish').textContent=secToClock(serverNow+projectedRemaining*serverTimeMultiplier());
   const finishDelta=projectedRemaining-remainingNow;
   const oneLapMargin=Math.max(1,Number(e.avgLapSec)||90.8);
   const finishKpi=$('#projectedFinishKpi');
@@ -1120,6 +1123,11 @@ function packNumber(raw,name,min,max){
   if(!String(raw??'').trim()||!Number.isFinite(n)||n<min||n>max)throw new Error(name+' must be between '+min+' and '+max+'.');
   return n;
 }
+function packServerMultiplier(raw){
+  const value=String(raw??'').trim();
+  if(!value)return 1;
+  return packNumber(value.replace(/^[x×]\s*/i,''),'Server time multiplier',0.25,60);
+}
 function packEventKey(round,track,date){
   const slug=String(track).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,32);
   return 'dacc-r'+String(round).replace(/[^a-z0-9]/gi,'')+'-'+slug+'-'+date;
@@ -1146,7 +1154,7 @@ async function startNewEventFromRacePack(){
     const minRestMinutes=packNumber(get('Minimum rest (minutes)'),'Minimum rest',0,48*60);
     const maxConsecutive=packNumber(get('Maximum consecutive stints'),'Maximum consecutive stints',1,48);
     const minUsefulStintMinutes=packNumber(get('Minimum useful stint duration (minutes)'),'Minimum useful stint duration',10,48*60);
-    const irlStart=packTime(get('IRL race start'),'IRL race start'),serverStart=packTime(get('Server start time'),'Server start time');
+    const irlStart=packTime(get('IRL race start'),'IRL race start'),serverStart=packTime(get('Server start time'),'Server start time'),serverTimeMultiplier=packServerMultiplier(get('Server time multiplier'));
     const carNumber=String(get('Car number')||'').trim();
     if(!carNumber)throw new Error('Enter Car number in Race Settings.');
     const detected=discoverEventDrivers(availabilitySheet);
@@ -1155,11 +1163,11 @@ async function startNewEventFromRacePack(){
     const starter=starterName?chosen(starterName):null,qualifying=qualifyingName?chosen(qualifyingName):null;
     if(starterName&&!starter)throw new Error('Starter / practice driver must be on Driver Availability.');
     if(qualifyingName&&!qualifying)throw new Error('Qualifying driver must be on Driver Availability.');
-    const ok=await modalAsk({title:'Start a fresh event?',text:name+' • Round '+round+' • '+track+' • '+date+'\n'+raceHours+' hours from '+irlStart+' UK • '+detected.length+' drivers.\n\nThe old shared session stays intact. A local backup will be saved before replacing the local plan.',ok:'Start new event'});
+    const ok=await modalAsk({title:'Start a fresh event?',text:name+' • Round '+round+' • '+track+' • '+date+'\n'+raceHours+' hours from '+irlStart+' UK • server time ×'+serverTimeMultiplier+' • '+detected.length+' drivers.\n\nThe old shared session stays intact. A local backup will be saved before replacing the local plan.',ok:'Start new event'});
     if(!ok)return;
     localStorage.setItem('dacc-event-backup:'+Date.now(),JSON.stringify(previous));
     state={
-      event:{name:'Round '+round+' — '+name,round:String(round),track,raceDate:date,eventKey:packEventKey(round,track,date),irlStart,serverStart,raceHours,avgLapSec,pitLossSec,carNumber,fuelPerLap:0,tankLitres:0,fuelMarginLaps:1,qualifyingDate:get('Qualifying date')?packDate(get('Qualifying date')):'',qualifyingStart:get('Qualifying start')?packTime(get('Qualifying start'),'Qualifying start'):'',qualifyingEnd:get('Qualifying end')?packTime(get('Qualifying end'),'Qualifying end'):'',practiceStart:get('Practice start')?packTime(get('Practice start'),'Practice start'):'',practiceEnd:get('Practice end')?packTime(get('Practice end'),'Practice end'):''},
+      event:{name:'Round '+round+' — '+name,round:String(round),track,raceDate:date,eventKey:packEventKey(round,track,date),irlStart,serverStart,serverTimeMultiplier,raceHours,avgLapSec,pitLossSec,carNumber,fuelPerLap:0,tankLitres:0,fuelMarginLaps:1,qualifyingDate:get('Qualifying date')?packDate(get('Qualifying date')):'',qualifyingStart:get('Qualifying start')?packTime(get('Qualifying start'),'Qualifying start'):'',qualifyingEnd:get('Qualifying end')?packTime(get('Qualifying end'),'Qualifying end'):'',practiceStart:get('Practice start')?packTime(get('Practice start'),'Practice start'):'',practiceEnd:get('Practice end')?packTime(get('Practice end'),'Practice end'):''},
       drivers:detected.map(d=>({id:d.id,label:d.label,availability:[]})),
       stints:[{driver:starter?.id||detected[0].id,laps:Math.max(1,Math.round(targetStintMinutes*60/avgLapSec))}],
       prep:{driverBaselines:{},source:null},
@@ -1207,6 +1215,32 @@ function xlsxCell(ref,value,style=2){
 }
 function xlsxRow(number,values,styles=[]){return `<row r="${number}">${values.map((value,index)=>xlsxCell(`${excelColumnName(index)}${number}`,value,styles[index]??2)).join('')}</row>`}
 function safeFilePart(value){return String(value||'Race').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,100)||'Race'}
+async function writeServerMultiplierToRacePack(zip,workbook,relationships,sourceBook){
+  const tab=Array.from(workbook.getElementsByTagName('*')).find(node=>node.localName==='sheet'&&node.getAttribute('name')==='Race Settings');
+  if(!tab)throw new Error('Race Settings worksheet is missing.');
+  const id=tab.getAttribute('r:id')||tab.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+  const rel=Array.from(relationships.getElementsByTagName('*')).find(node=>node.localName==='Relationship'&&node.getAttribute('Id')===id);
+  if(!rel)throw new Error('Race Settings worksheet relationship is missing.');
+  const target=rel.getAttribute('Target'),path=target.startsWith('/')?target.slice(1):new URL(target,'https://race-pack.local/xl/').pathname.slice(1);
+  const part=zip.file(path);if(!part)throw new Error('Race Settings worksheet could not be read.');
+  const sheet=readXml(await part.async('string')),data=Array.from(sheet.getElementsByTagName('*')).find(node=>node.localName==='sheetData');
+  if(!data)throw new Error('Race Settings worksheet has no cell grid.');
+  const rows=sourceBook.sheets['Race Settings']||[];
+  const found=rows.find(row=>String(row.cells.A||'').trim().toLowerCase()==='server time multiplier');
+  const rowNumber=found?.number||Math.max(5,...rows.map(row=>row.number))+1;
+  const styleAt=(ref,fallback=0)=>Number(Array.from(sheet.getElementsByTagName('*')).find(node=>node.localName==='c'&&node.getAttribute('r')===ref)?.getAttribute('s')??fallback);
+  const source=readXml(`<row xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" r="${rowNumber}">${found?'':xlsxCell(`A${rowNumber}`,'Server time multiplier',styleAt('A13'))}${xlsxCell(`B${rowNumber}`,serverTimeMultiplier(),styleAt(found?`B${rowNumber}`:'B13'))}</row>`);
+  const existing=Array.from(data.children).find(row=>row.localName==='row'&&Number(row.getAttribute('r'))===rowNumber);
+  if(existing){
+    const oldB=xmlChildren(existing,'c').find(cell=>cell.getAttribute('r')===`B${rowNumber}`);
+    const newB=sheet.importNode(xmlChildren(source.documentElement,'c').find(cell=>cell.getAttribute('r')===`B${rowNumber}`),true);
+    if(oldB)existing.replaceChild(newB,oldB);
+    else existing.insertBefore(newB,xmlChildren(existing,'c').find(cell=>columnNumber(cellColumn(cell.getAttribute('r')))>2)||null);
+  }else data.appendChild(sheet.importNode(source.documentElement,true));
+  const dimension=Array.from(sheet.documentElement.children).find(node=>node.localName==='dimension');
+  if(dimension){const ref=dimension.getAttribute('ref')||'',match=ref.match(/^(.*:)?([A-Z]+)(\d+)$/);if(match&&Number(match[3])<rowNumber)dimension.setAttribute('ref',`${match[1]||''}${match[2]}${rowNumber}`)}
+  zip.file(path,new XMLSerializer().serializeToString(sheet));
+}
 async function buildMasterPrepWorkbook(file,sourceBook){
     const rows=schedule(),headers=['Order','Stint','Driver','Target laps','Projected IRL start','Projected IRL finish','Projected server start','Projected server finish','Driving time','Preceding pit / changeover','Availability','Server temp','Air temp','Track temp','Load note','Pit Strat #','Fuel (L)','Fuel / lap (L)','Brake change after','Front ducts','Rear ducts','BB','TC','TC2','ABS','LF PSI','RF PSI','LR PSI','RR PSI','Notes'];
     const outputRows=rows.map((row,index)=>{
@@ -1301,6 +1335,7 @@ async function buildMasterPrepWorkbook(file,sourceBook){
       else if(formula.includes('Y,N'))validation.setAttribute('sqref',`S7:S${endRow}`);
     }
     zip.file(sheetPath,new XMLSerializer().serializeToString(worksheet));
+    await writeServerMultiplierToRacePack(zip,workbook,relationships,sourceBook);
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     return {blob,stintCount:outputRows.length};
 }
@@ -1340,6 +1375,8 @@ async function updateMasterPrepWorkbook(){
     const numbered=prep.filter(row=>/^Stint\s+\d+$/i.test(row.cells.B||''));
     if(numbered.length!==stintCount||!prep.some(row=>Object.values(row.cells).includes('DACC_RACE_ENGINEER_PREP_V1')))
       throw new Error('The file was written, but the stint sheet could not be verified. Use the downloaded backup if needed.');
+    if(Number(packValue(verified.sheets['Race Settings']||[],'Server time multiplier'))!==serverTimeMultiplier())
+      throw new Error('The file was written, but its server time multiplier could not be verified. Use the downloaded backup if needed.');
     state.stints.forEach((st,index)=>{st.workbookStintNo=index+1});
     commitState();
     const input=$('#prepWorkbook'),transfer=new DataTransfer();transfer.items.add(updated);input.files=transfer.files;workbookCache=null;
@@ -1564,6 +1601,7 @@ function render(){
   $('#eventCarBadge').textContent=String(e.carNumber||cfg.simbotCarNumber||'—');
   if(document.activeElement!==$('#irlStart')) $('#irlStart').value=e.irlStart;
   if(document.activeElement!==$('#serverStart')) $('#serverStart').value=e.serverStart;
+  if(document.activeElement!==$('#serverTimeMultiplier')) $('#serverTimeMultiplier').value=serverTimeMultiplier();
   if(document.activeElement!==$('#pitLossSec')) $('#pitLossSec').value=e.pitLossSec;
   if(document.activeElement!==$('#raceHours')) $('#raceHours').value=e.raceHours;
   if(document.activeElement!==$('#planAvgLapSec')) $('#planAvgLapSec').value=e.avgLapSec;
@@ -1590,7 +1628,7 @@ function render(){
   $('#countdownBtn').disabled=!edit || state.runtime.status!=='PRE-RACE' || state.runtime.countdownActive;
   $('#countdownSetBtn').disabled=!edit || state.runtime.status!=='PRE-RACE';
   $('#importFile').disabled=!edit;
-  for(const id of ['irlStart','serverStart','pitLossSec','raceHours','planAvgLapSec']) $('#'+id).disabled=!edit;
+  for(const id of ['irlStart','serverStart','serverTimeMultiplier','pitLossSec','raceHours','planAvgLapSec']) $('#'+id).disabled=!edit;
   $('#addIncidentBtn').disabled=!edit;
   $('#strategyNotes').disabled=!edit;
   for(const id of ['calcFuelBtn','useCurrentBtn','voicePasteBtn','tapTestBtn']){
@@ -1937,10 +1975,7 @@ async function serverResync(){
   const previewElapsed=elapsedRaceSec();
 
   if(m==='CLOCK'){
-    const current=secToClock(
-      (Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart)) +
-      (previewElapsed-(Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0))
-    );
+    const current=secToClock(serverClockForElapsed(previewElapsed));
     const v=await modalAsk({
       title:'Set restarted server clock',
       text:'Enter H:MM:SS or HH:MM. Example: 10:00:00',
@@ -1971,9 +2006,7 @@ async function serverResync(){
     const elapsed=elapsedRaceSec();
     freezeCompletedServerTiming();
     // Preserve the server-clock reading while re-anchoring the official remaining-time countdown.
-    const priorAnchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
-    const priorAnchorClock=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
-    const currentServerClock=priorAnchorClock+(elapsed-priorAnchorElapsed);
+    const currentServerClock=serverClockForElapsed(elapsed);
 
     state.runtime.serverAnchorElapsedSec=elapsed;
     state.runtime.serverAnchorClockSec=currentServerClock;
@@ -2102,12 +2135,10 @@ function completeCurrentStint({automatic=false,finishOverrideElapsed=null,irlFin
   const finishElapsed=Number.isFinite(finishOverrideElapsed)?finishOverrideElapsed:(automatic?r.finishElapsed:elapsed);
   state.runtime.actualStints[i]||={startElapsed:r.startElapsed};state.runtime.actualStints[i].finishElapsed=finishElapsed;
   if(Number.isFinite(irlFinishClock))state.runtime.actualStints[i].irlFinishClock=irlFinishClock;
-  const anchorBase=Number.isFinite(state.runtime.serverAnchorClockSec)?state.runtime.serverAnchorClockSec:timeToSec(state.event.serverStart);
-  const anchorElapsed=Number.isFinite(state.runtime.serverAnchorElapsedSec)?state.runtime.serverAnchorElapsedSec:0;
   state.runtime.serverHistory ||= {};
   state.runtime.serverHistory[i]={
     serverStart:r.serverStart,
-    serverFinish:Math.max(r.serverStart,anchorBase+(finishElapsed-anchorElapsed))
+    serverFinish:Math.max(r.serverStart,serverClockForElapsed(finishElapsed))
   };
   state.runtime.serverRemainingHistory ||= {};
   state.runtime.serverRemainingHistory[i]=r.remaining;
@@ -2121,7 +2152,7 @@ function completeCurrentStint({automatic=false,finishOverrideElapsed=null,irlFin
       actual.startElapsed=handoverElapsed;
       actual.irlStartClock=actualRaceStartClockSec()+handoverElapsed;
       state.runtime.serverHistory[next] ||= {};
-      state.runtime.serverHistory[next].serverStart=anchorBase+(handoverElapsed-anchorElapsed);
+      state.runtime.serverHistory[next].serverStart=serverClockForElapsed(handoverElapsed);
     }
     addLog(`Next: ${label(state.stints[next].driver)} after ${changeoverSec}s pit/changeover${r.brakeChangeAfter?' (includes +45s brake change)':''}`,false);
   }
@@ -2648,8 +2679,13 @@ $('#resetBtn').onclick=async()=>{if(!canEdit())return;const ok=await modalAsk({t
 $('#recalcBtn').onclick=()=>{
   if(!canEdit())return;
   const old=schedule(),newServerStart=$('#serverStart').value,newSimBotUrl=$('#simbotUrlInput').value.trim();
+  const newServerMultiplier=Number($('#serverTimeMultiplier').value);
   if(!newServerStart){toast('Enter a valid Server Start Time.');return}
+  if(!Number.isFinite(newServerMultiplier)||newServerMultiplier<0.25||newServerMultiplier>60){toast('Enter a Server Time Multiplier between 0.25 and 60.');return}
   if(newSimBotUrl&&!parseSimBotSource(newSimBotUrl)){toast('Enter a full https://web.simbot.app/live-laps link containing a server parameter.');return}
+  const startChanged=state.event.serverStart!==newServerStart;
+  const multiplierChanged=serverTimeMultiplier()!==newServerMultiplier;
+  const elapsedAtChange=elapsedRaceSec(),clockAtChange=serverClockForElapsed(elapsedAtChange);
   state.runtime.serverHistory ||= {};
   state.runtime.serverRemainingHistory ||= {};
   for(let i=0;i<state.runtime.currentIndex;i++){
@@ -2659,17 +2695,21 @@ $('#recalcBtn').onclick=()=>{
       state.runtime.serverRemainingHistory[i]=old[i].remaining;
     }
   }
-  const changed=state.event.serverStart!==newServerStart;
-  state.event.irlStart=$('#irlStart').value;state.event.serverStart=newServerStart;
+  state.event.irlStart=$('#irlStart').value;state.event.serverStart=newServerStart;state.event.serverTimeMultiplier=newServerMultiplier;
   state.event.simbotUrl=newSimBotUrl;
   state.event.pitLossSec=+$('#pitLossSec').value;state.event.raceHours=+$('#raceHours').value;state.event.avgLapSec=+$('#planAvgLapSec').value;
-  if(changed){
-    state.runtime.serverAnchorClockSec=timeToSec(newServerStart);state.runtime.serverAnchorElapsedSec=0;state.runtime.serverRemainingAnchorSec=null;state.runtime.serverRemainingAnchorStintIndex=null;
+  if(startChanged||multiplierChanged){
+    if(startChanged||state.runtime.status==='PRE-RACE'){
+      state.runtime.serverAnchorClockSec=timeToSec(newServerStart);state.runtime.serverAnchorElapsedSec=0;
+    }else{
+      // Changing the live rate must not make the displayed server clock jump.
+      state.runtime.serverAnchorClockSec=clockAtChange;state.runtime.serverAnchorElapsedSec=elapsedAtChange;
+    }
+    if(startChanged){state.runtime.serverRemainingAnchorSec=null;state.runtime.serverRemainingAnchorStintIndex=null}
     for(const key of Object.keys(state.runtime.serverHistory))if(+key>=state.runtime.currentIndex)delete state.runtime.serverHistory[key];
-    state.runtime.serverRemainingHistory ||= {};
-    for(const key of Object.keys(state.runtime.serverRemainingHistory))if(+key>=state.runtime.currentIndex)delete state.runtime.serverRemainingHistory[key];
+    if(startChanged)for(const key of Object.keys(state.runtime.serverRemainingHistory))if(+key>=state.runtime.currentIndex)delete state.runtime.serverRemainingHistory[key];
   }
-  addLog(changed?`Server Start Time changed to ${newServerStart}; current/future projections recalculated`:'Schedule recalculated',false);commitState();render();
+  addLog(startChanged||multiplierChanged?`Server timing updated: start ${newServerStart}, time multiplier ×${newServerMultiplier}; current/future projections recalculated`:'Schedule recalculated',false);commitState();render();
 };
 $('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
 $('#exportBtn').onclick=()=>downloadRaceBackup();
