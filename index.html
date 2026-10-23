@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.25</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.27</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -148,8 +148,8 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
               <dt>Generate / Regenerate / Replan</dt><dd>Builds or revises the schedule from availability and limits. Completed and locked stints stay fixed.</dd>
               <dt>Read workbook / Start New Event</dt><dd>Reads a Race Pack or starts a new round from its settings and driver list.</dd>
               <dt>Import drivers / availability</dt><dd>Brings the event roster and Y/P/N time slots from the workbook into planning.</dd>
-              <dt>Update Master Prep Sheet</dt><dd>Writes the current stint order into the selected synced Race Pack after a safety backup.</dd>
-              <dt>Publish Prep Data</dt><dd>Reads completed prep values from the workbook into the shared race.</dd>
+              <dt>Update Master Prep Sheet</dt><dd>Writes the stint order into the same synced Race Pack and adds Wet Setups if needed. A safety backup downloads first.</dd>
+              <dt>Publish Prep Data</dt><dd>Reads dry stint prep and standalone wet setup options into the shared race.</dd>
               <dt>Calculate fuel / Use current stint</dt><dd>Calculates fuel for entered laps or time; the second button fills the current stint laps.</dd>
               <dt>Add Incident / Save Incidents CSV</dt><dd>Records a shared incident or downloads the incident log.</dd>
               <dt>Save / Export JSON / Import JSON</dt><dd>Saves locally, downloads a full race backup, or restores one from a file.</dd>
@@ -165,6 +165,14 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           </div>
         </div>
       </section>
+
+      <details class="card planning" id="wetSetupsPanel">
+        <summary>Wet setup options <span id="wetSetupsCount"></span></summary>
+        <div class="cardbody">
+          <div class="sub">Shared setup versions for the event, independent of the driver and stint. Complete the Wet Setups Excel tab, then Publish Prep Data.</div>
+          <div id="wetSetupsList"></div>
+        </div>
+      </details>
 
       <section class="card" style="margin-top:12px">
         <h2>Driver Totals</h2>
@@ -331,7 +339,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.25 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.27 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -1074,6 +1082,32 @@ function renderNextPrep(st){
   }
   details.open=wasOpen;el.appendChild(details);
 }
+function renderWetSetups(){
+  const container=$('#wetSetupsList'),options=state.prep?.wetSetups||[];
+  const previouslyOpen=new Set(Array.from(container.querySelectorAll('details[open]')).map(x=>x.dataset.version));
+  container.replaceChildren();
+  $('#wetSetupsCount').textContent=options.length?`(${options.length})`:'';
+  if(!options.length){const message=document.createElement('p');message.className='sub';message.textContent='No wet setup options published yet.';container.appendChild(message);return}
+  for(const setup of options){
+    const card=document.createElement('div');card.className='prepsummary';
+    const title=document.createElement('strong');title.textContent=setup.version;card.appendChild(title);
+    const pressures=document.createElement('div');pressures.className='pressuregrid';
+    for(const [name,key] of [['LF','lf'],['RF','rf'],['LR','lr'],['RR','rr']]){
+      const item=document.createElement('div');item.className='pressurecell';
+      const label=document.createElement('span');label.textContent=name+' PSI';
+      const value=document.createElement('b');value.textContent=prepValue(setup[key]);
+      item.append(label,value);pressures.appendChild(item)
+    }
+    card.appendChild(pressures);
+    const details=document.createElement('details');details.dataset.version=setup.version;details.open=previouslyOpen.has(setup.version);
+    const summary=document.createElement('summary');summary.textContent='Fuel and setup details';details.appendChild(summary);
+    for(const [name,key] of [['Pressure offset','offset'],['Fuel','fuel'],['Fuel/lap','fuelPerLap'],['Front ducts','frontDuct'],['Rear ducts','rearDuct'],['BB','bb'],['TC','tc'],['TC2','tc2'],['ABS','abs'],['Notes / conditions','notes']]){
+      if(setup[key]===undefined||setup[key]===null||setup[key]==='')continue;
+      const line=document.createElement('div');line.className='prepline';line.textContent=`${name}: ${setup[key]}`;details.appendChild(line)
+    }
+    card.appendChild(details);container.appendChild(card)
+  }
+}
 function xmlChildren(node,name){return Array.from(node?.children||[]).filter(x=>x.localName===name)}
 function xmlFirst(node,name){return xmlChildren(node,name)[0]}
 function readXml(text){const doc=new DOMParser().parseFromString(String(text).replace(/^\uFEFF/,''),'application/xml');if(doc.querySelector('parsererror'))throw new Error('Invalid Excel XML');return doc}
@@ -1170,7 +1204,7 @@ async function startNewEventFromRacePack(){
       event:{name:'Round '+round+' — '+name,round:String(round),track,raceDate:date,eventKey:packEventKey(round,track,date),irlStart,serverStart,serverTimeMultiplier,raceHours,avgLapSec,pitLossSec,carNumber,fuelPerLap:0,tankLitres:0,fuelMarginLaps:1,qualifyingDate:get('Qualifying date')?packDate(get('Qualifying date')):'',qualifyingStart:get('Qualifying start')?packTime(get('Qualifying start'),'Qualifying start'):'',qualifyingEnd:get('Qualifying end')?packTime(get('Qualifying end'),'Qualifying end'):'',practiceStart:get('Practice start')?packTime(get('Practice start'),'Practice start'):'',practiceEnd:get('Practice end')?packTime(get('Practice end'),'Practice end'):''},
       drivers:detected.map(d=>({id:d.id,label:d.label,availability:[]})),
       stints:[{driver:starter?.id||detected[0].id,laps:Math.max(1,Math.round(targetStintMinutes*60/avgLapSec))}],
-      prep:{driverBaselines:{},source:null},
+      prep:{driverBaselines:{},wetSetups:[],source:null},
       planning:{settingsSource:{name:file.name,sheet:'Race Settings',importedAt:new Date().toISOString()},importedRules:{targetStintMinutes,maxDriveMinutes,minRestMinutes,minUsefulStintMinutes,maxConsecutive,allowDouble:/^(yes|y|true|1)$/i.test(get('Double stints allowed'))},targetStintMinutes,maxDriveMinutes,minRestMinutes,minUsefulStintMinutes,maxConsecutive,allowDouble:/^(yes|y|true|1)$/i.test(get('Double stints allowed')),starter:starter?.id||'',finisher:'',qualifyingDriver:qualifying?.id||'',availability:{},driverRules:{},source:null},
       runtime:{status:'PRE-RACE'}
     };
@@ -1207,6 +1241,22 @@ function prepFromCells(c){
   const stint={fuel:c.Q,fuelPerLap:c.R,serverTemp:c.L,airTemp:c.M,trackTemp:c.N,brakeInstruction:c.S,notes:c.AD,lf:c.Z,rf:c.AA,lr:c.AB,rr:c.AC};
   return {setup:Object.fromEntries(Object.entries(setup).filter(([,v])=>v!==undefined&&v!=='')),stint:Object.fromEntries(Object.entries(stint).filter(([,v])=>v!==undefined&&v!==''))};
 }
+function wetSetupsFromWorkbook(book,dryRows){
+  const rows=book.sheets['Wet Setups']||[];
+  if(!rows.some(row=>Object.values(row.cells).includes('DACC_WET_SETUPS_V1')))return [];
+  const dry=dryRows.filter(row=>/^Stint\s+\d+$/i.test(row.cells.B||''));
+  const averages=['Z','AA','AB','AC'].map(column=>{const values=dry.map(row=>Number(row.cells[column])).filter(value=>Number.isFinite(value)&&value>0);return values.length?values.reduce((a,b)=>a+b,0)/values.length:null});
+  const number=value=>{if(value===undefined||value===null||String(value).trim()==='')return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null};
+  const setups=[];
+  for(const row of rows){
+    if(row.number<8)continue;
+    const c=row.cells,version=String(c.A||'').trim();if(!version)continue;
+    const offset=number(c.B),pressures=['C','D','E','F'].map((column,index)=>number(c[column])??(offset!==null&&averages[index]!==null?Math.round((averages[index]+offset)*10)/10:null));
+    const setup={version,offset,lf:pressures[0],rf:pressures[1],lr:pressures[2],rr:pressures[3],fuel:c.G,fuelPerLap:c.H,frontDuct:c.I,rearDuct:c.J,bb:c.K,tc:c.L,tc2:c.M,abs:c.N,notes:c.O};
+    if(pressures.some(v=>v!==null)||['fuel','fuelPerLap','frontDuct','rearDuct','bb','tc','tc2','abs','notes'].some(key=>setup[key]!==undefined&&setup[key]!==''))setups.push(setup);
+  }
+  return setups;
+}
 function xmlEscape(value){return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
 function excelColumnName(index){let name='';for(let n=index+1;n;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;return name}
 function xlsxCell(ref,value,style=2){
@@ -1214,6 +1264,35 @@ function xlsxCell(ref,value,style=2){
   return `<c r="${ref}" s="${style}" t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`;
 }
 function xlsxRow(number,values,styles=[]){return `<row r="${number}">${values.map((value,index)=>xlsxCell(`${excelColumnName(index)}${number}`,value,styles[index]??2)).join('')}</row>`}
+function xlsxFormula(reference,formula,style=35){return `<c r="${reference}" s="${style}"><f>${xmlEscape(formula)}</f><v></v></c>`}
+async function ensureWetSetupsSheet(zip,workbook,relationships,sourceBook){
+  if(sourceBook.sheets['Wet Setups'])return;
+  const sheetNodes=Array.from(workbook.getElementsByTagName('*')).filter(node=>node.localName==='sheet');
+  const sheetId=Math.max(0,...sheetNodes.map(node=>Number(node.getAttribute('sheetId'))||0))+1;
+  const existingIds=Array.from(relationships.getElementsByTagName('*')).filter(node=>node.localName==='Relationship').map(node=>Number((node.getAttribute('Id')||'').match(/^rId(\d+)$/)?.[1])||0);
+  const relId='rId'+(Math.max(0,...existingIds)+1);
+  let sheetFile=sheetId;while(zip.file(`xl/worksheets/sheet${sheetFile}.xml`))sheetFile++;
+  const mainNs='http://schemas.openxmlformats.org/spreadsheetml/2006/main',relNs='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const newSheet=workbook.createElementNS(mainNs,'sheet');newSheet.setAttribute('name','Wet Setups');newSheet.setAttribute('sheetId',String(sheetId));newSheet.setAttributeNS(relNs,'r:id',relId);
+  xmlFirst(workbook.documentElement,'sheets').appendChild(newSheet);
+  const newRel=relationships.createElementNS('http://schemas.openxmlformats.org/package/2006/relationships','Relationship');newRel.setAttribute('Id',relId);newRel.setAttribute('Type',relNs+'/worksheet');newRel.setAttribute('Target',`worksheets/sheet${sheetFile}.xml`);relationships.documentElement.appendChild(newRel);
+  zip.file('xl/workbook.xml',new XMLSerializer().serializeToString(workbook));
+  zip.file('xl/_rels/workbook.xml.rels',new XMLSerializer().serializeToString(relationships));
+  const types=readXml(await zip.file('[Content_Types].xml').async('string'));
+  const override=types.createElementNS('http://schemas.openxmlformats.org/package/2006/content-types','Override');override.setAttribute('PartName',`/xl/worksheets/sheet${sheetFile}.xml`);override.setAttribute('ContentType','application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml');types.documentElement.appendChild(override);
+  zip.file('[Content_Types].xml',new XMLSerializer().serializeToString(types));
+  const labels=['Version','Pressure offset (PSI)','LF PSI','RF PSI','LR PSI','RR PSI','Fuel (L)','Fuel / lap (L)','Front ducts','Rear ducts','BB','TC','TC2','ABS','Notes / conditions'];
+  const sheetRows=[xlsxRow(1,['DACC_WET_SETUPS_V1']),xlsxRow(2,['Wet setup options']),xlsxRow(3,['Shared wet setups for the event. Independent of drivers and stints.']),xlsxRow(4,['Edit any version or pressure before publishing. Dry average is a reference.']),xlsxRow(6,labels,labels.map(()=>44))];
+  sheetRows.push(`<row r="7">${xlsxCell('A7','Dry average (reference)',35)}${xlsxCell('B7',0,35)}${['Z','AA','AB','AC'].map((dry,index)=>xlsxFormula(`${'CDEF'[index]}7`,`IF(COUNT('Stints & Prep'!${dry}7:${dry}200)=0,"",ROUND(AVERAGE('Stints & Prep'!${dry}7:${dry}200),1))`)).join('')}</row>`);
+  for(const [row,offset] of [[8,1.5],[9,2],[10,2.5],[11,3]])sheetRows.push(`<row r="${row}">${xlsxCell(`A${row}`,`Dry average +${offset} PSI`,35)}${xlsxCell(`B${row}`,offset,35)}${['C','D','E','F'].map(column=>xlsxFormula(`${column}${row}`,`IF(${column}$7="","",ROUND(${column}$7+$B${row},1))`)).join('')}</row>`);
+  for(const [row,label] of [[12,'Mid rain'],[13,'Heavy rain'],[14,'Custom']])sheetRows.push(xlsxRow(row,[label,...Array(14).fill('')],Array(15).fill(35)));
+  const legacy=[];for(const old of sourceBook.sheets['Stints & Prep']||[]){if(!/^Stint\s+\d+$/i.test(old.cells.B||''))continue;const c=old.cells,values=[c.AM,c.AN,c.AO,c.AP,c.AE,c.AF,c.AG,c.AH,c.AI,c.AJ,c.AK,c.AL,c.AQ];if(values.some(value=>String(value??'').trim()))legacy.push(values)}
+  const unique=[...new Map(legacy.map(values=>[JSON.stringify(values),values])).values()];
+  unique.forEach((values,index)=>sheetRows.push(xlsxRow(15+index,[`Imported wet option ${index+1}`,'',...values],Array(15).fill(35))));
+  const last=14+unique.length;
+  const xml=`<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="${mainNs}"><dimension ref="A1:O${last}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="6" topLeftCell="A7" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="26" customWidth="1"/><col min="2" max="2" width="22" customWidth="1"/><col min="3" max="14" width="15" customWidth="1"/><col min="15" max="15" width="40" customWidth="1"/></cols><sheetData>${sheetRows.join('')}</sheetData></worksheet>`;
+  zip.file(`xl/worksheets/sheet${sheetFile}.xml`,xml);
+}
 function safeFilePart(value){return String(value||'Race').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,100)||'Race'}
 async function writeServerMultiplierToRacePack(zip,workbook,relationships,sourceBook){
   const tab=Array.from(workbook.getElementsByTagName('*')).find(node=>node.localName==='sheet'&&node.getAttribute('name')==='Race Settings');
@@ -1336,6 +1415,7 @@ async function buildMasterPrepWorkbook(file,sourceBook){
     }
     zip.file(sheetPath,new XMLSerializer().serializeToString(worksheet));
     await writeServerMultiplierToRacePack(zip,workbook,relationships,sourceBook);
+    await ensureWetSetupsSheet(zip,workbook,relationships,sourceBook);
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     return {blob,stintCount:outputRows.length};
 }
@@ -1377,6 +1457,8 @@ async function updateMasterPrepWorkbook(){
       throw new Error('The file was written, but the stint sheet could not be verified. Use the downloaded backup if needed.');
     if(Number(packValue(verified.sheets['Race Settings']||[],'Server time multiplier'))!==serverTimeMultiplier())
       throw new Error('The file was written, but its server time multiplier could not be verified. Use the downloaded backup if needed.');
+    if(!verified.sheets['Wet Setups']?.some(row=>Object.values(row.cells).includes('DACC_WET_SETUPS_V1')))
+      throw new Error('The file was written, but the Wet Setups tab could not be verified. Use the downloaded backup if needed.');
     state.stints.forEach((st,index)=>{st.workbookStintNo=index+1});
     commitState();
     const input=$('#prepWorkbook'),transfer=new DataTransfer();transfer.items.add(updated);input.files=transfer.files;workbookCache=null;
@@ -1410,9 +1492,10 @@ async function refreshPrepData(){
       st.driverSetupOverride=sourceDriver===st.driver?Object.fromEntries(Object.entries(setup).filter(([k,v])=>baselines[st.driver]?.[k]!==v)):{};
       matched++;
     }
-    state.prep={driverBaselines:baselines,source:{name:file.name,sheet:selected.name,refreshedAt:new Date().toISOString(),matched}};
-    addLog(`Prep refreshed from ${file.name}: ${matched} stints`,false);
-    commitState();render();toast(`Prep published for ${matched} stints.`);
+    const wetSetups=wetSetupsFromWorkbook(workbookCache,selected.rows);
+    state.prep={driverBaselines:baselines,wetSetups,source:{name:file.name,sheet:selected.name,refreshedAt:new Date().toISOString(),matched}};
+    addLog(`Prep refreshed from ${file.name}: ${matched} stints, ${wetSetups.length} wet options`,false);
+    commitState();render();toast(`Prep published for ${matched} stints and ${wetSetups.length} wet options.`);
   }catch(e){console.error(e);toast(`Prep refresh failed: ${e.message}`,6000)}
   finally{$('#refreshPrepBtn').disabled=!canEdit()}
 }
@@ -1660,6 +1743,7 @@ function render(){
   $('#currentBrakeWarn').classList.toggle('hidden',!currentBrakeOn);
   $('#nextBrakeWarn').classList.toggle('hidden',!nextBrakeOn);
   renderNextPrep(state.stints[cur+1]);
+  renderWetSetups();
   const source=state.prep?.source;
   $('#prepMeta').textContent=source?`Published ${source.name} • ${source.sheet} • ${source.matched} stints • ${new Date(source.refreshedAt).toLocaleString()}`:'No workbook prep published.';
   const rosterSource=state.planning?.rosterSource,settingsSource=state.planning?.settingsSource;$('#rosterMeta').textContent=rosterSource?`Event roster: ${state.drivers.map(d=>d.label).join(', ')} • ${rosterSource.sheet} • ${new Date(rosterSource.importedAt).toLocaleString()}${settingsSource?' • Planning limits from '+settingsSource.sheet:''}`:`Current event drivers: ${state.drivers.map(d=>d.label).join(', ')}. Import remains review-only until confirmed.`;
@@ -2909,3 +2993,4 @@ await initShared();render();
 </body>
 </html>
 
+
