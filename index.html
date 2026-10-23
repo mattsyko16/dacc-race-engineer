@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.27</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.28</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -90,7 +90,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
             <div class="kpi"><div class="label">Race remaining</div><div class="value" id="raceRemaining">--:--:--</div></div>
             <div class="kpi"><div class="label">Server clock</div><div class="value" id="serverClock">--:--:--</div></div>
             <div class="kpi" id="projectedFinishKpi"><div class="label">Server projected finish</div><div class="value" id="plannedFinish">--:--</div><div class="finishmargin" id="finishMargin">—</div></div>
-            <div class="kpi" id="driverChangeKpi"><div class="label">Next driver change</div><div class="value" id="driverChangeCountdown" aria-live="polite">—</div><div class="change-target" id="driverChangeTarget">Waiting for race start</div></div>
+            <div class="kpi" id="driverChangeKpi"><div class="label">Next driver ready</div><div class="value" id="driverChangeCountdown" aria-live="polite">—</div><div class="change-target" id="driverChangeTarget">Waiting for race start</div></div>
             <div class="kpi"><div class="label">Current stint</div><div class="value" id="currentStintNo">1</div></div><div class="kpi"><div class="label">Start countdown</div><div class="value" id="startCountdown">—</div></div>
             <div class="kpi"><div class="label">Projected laps / stints</div><div class="value"><span id="projectedLaps">0</span> <span style="font-size:13px;color:var(--muted)" id="projectedStints"></span></div></div>
           </div>
@@ -339,7 +339,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.27 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.28 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -834,10 +834,14 @@ function driverChangeCountdownModel(sch=schedule(),elapsed=elapsedRaceSec()){
   const cur=status==='PRE-RACE'?0:effectiveCurrentIndex(sch,elapsed);
   const row=sch[cur],next=sch[cur+1];
   if(!row||!next)return {seconds:null,tone:'none',urgent:false,target:'No further driver change'};
-  const seconds=Math.max(0,next.startElapsed-(status==='PRE-RACE'?0:elapsed));
+  const pitSec=Number(state.event.pitLossSec||0)+(row.brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0);
+  const readyElapsed=next.startElapsed-pitSec;
+  const seconds=Math.max(0,readyElapsed-(status==='PRE-RACE'?0:elapsed));
   const tone=seconds>1200?'green':seconds>300?'yellow':'red';
   const autoPaused=state.runtime.autoAdvanceSuppressedIndex===state.runtime.currentIndex;
-  return {seconds,tone,urgent:seconds<=0||autoPaused,autoPaused,target:autoPaused?'AUTO ADVANCE PAUSED after undo — use PIT NOW or Advance stint':`Pit ${secToClock(row.finish)} • ${label(next.driver)} handover ${secToClock(next.start)}`};
+  return {seconds,tone,urgent:seconds<=0||autoPaused,autoPaused,
+    target:autoPaused?'AUTO ADVANCE PAUSED after undo — use PIT NOW or Advance stint':`Ready by ${secToClock(next.start-pitSec)} • ${label(next.driver)} handover ${secToClock(next.start)}`,
+    overdueTarget:elapsed>=next.startElapsed?'HANDOVER DUE — advance stint':`PIT DUE — ${label(next.driver)} ready`};
 }
 function updateDriverChangeCountdown(sch=schedule(),elapsed=elapsedRaceSec()){
   const el=$('#driverChangeCountdown'),box=$('#driverChangeKpi'),target=$('#driverChangeTarget');
@@ -847,7 +851,7 @@ function updateDriverChangeCountdown(sch=schedule(),elapsed=elapsedRaceSec()){
   if(result.tone!=='none')box.classList.add(`change-${result.tone}`);
   if(result.urgent)box.classList.add('change-urgent');
   el.textContent=result.seconds===null?'—':fmtSec(Math.ceil(result.seconds));
-  target.textContent=result.autoPaused?result.target:result.urgent?'HANDOVER DUE NOW — advance stint or record next actual start':result.target;
+  target.textContent=result.autoPaused?result.target:result.urgent?result.overdueTarget:result.target;
 }
 
 function raceRemainingSec(elapsed=elapsedRaceSec()){
