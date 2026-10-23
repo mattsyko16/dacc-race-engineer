@@ -30,7 +30,7 @@ h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
 @media(max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}button{min-height:46px;padding:11px 13px;font-size:15px}.toolbar{gap:8px}.toolbar button{flex:1 1 145px}.shell{padding:7px}.cardbody{padding:9px}.tablewrap{font-size:12px}.drivercard .name{font-size:18px}.kpi .value{font-size:18px}.sidegrid{grid-template-columns:1fr}.field input,.field select{min-height:44px;font-size:16px}.modalbox input{min-height:46px;font-size:16px}.syncrow{align-items:flex-start}.sessioncode{font-size:18px}}
 .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px;min-width:0;min-height:96px}
 .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi .value{font-size:22px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.change-green{border-color:var(--good)!important;background:#10271f!important}.change-green .value{color:#6ee7b7}.change-yellow{border-color:var(--warn)!important;background:#302815!important}.change-yellow .value{color:#ffdb7c}.change-red{border-color:var(--bad)!important;background:#321b1b!important}.change-red .value{color:#ff9b9b}.change-urgent{box-shadow:0 0 0 2px rgba(242,109,109,.35),0 8px 28px rgba(0,0,0,.28)}.change-target{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.change-green{border-color:var(--good)!important;background:#10271f!important}.change-green .value{color:#6ee7b7}.change-yellow{border-color:var(--warn)!important;background:#302815!important}.change-yellow .value{color:#ffdb7c}.change-red{border-color:var(--bad)!important;background:#321b1b!important}.change-red .value{color:#ff9b9b}.change-urgent{box-shadow:0 0 0 2px rgba(242,109,109,.35),0 8px 28px rgba(0,0,0,.28)}.change-target{font-size:11px;color:var(--muted);margin-top:3px;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
 .drivercards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
 @media(max-width:760px){.drivercards{grid-template-columns:1fr}}
 .drivercard{background:linear-gradient(180deg,#1a2230,#151b25);border:1px solid var(--line);border-radius:11px;padding:11px}
@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.28</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.29</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -339,7 +339,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.28 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.29 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -536,7 +536,9 @@ function renderSharedMeta(){
   $('#unlockControlBtn').disabled=!shared.code || shared.isController || !shared.supabase;
   $('#newEventBtn').disabled=!!shared.code;
   $('#sharedHelp').textContent = !shared.code
-    ? 'LOCAL is only on this device. When the schedule is valid, press Create Shared Race to publish this round. The permanent team app link will then follow it.'
+     ? (state.runtime.status==='PRE-RACE'
+       ? 'LOCAL is only on this device. When the schedule is valid, press Create Shared Race to publish this round. The permanent team app link will then follow it.'
+       : 'LOCAL ONLY — this race clock is saved on this device and is not shared with teammates. Join the active race to see the team state.')
     : shared.isController
       ? 'RACE CONTROL — this device can edit. Copy Team App Link gives everyone the same URL for every round. The same key can unlock trusted controllers.'
       : 'VIEW ONLY — live race status is shared. This app follows the newest published round. Enter the shared Race Control key to unlock full editing.';
@@ -1067,7 +1069,7 @@ function renderNextPrep(st){
   const title=document.createElement('strong');title.textContent='NEXT DRIVER PREP';el.appendChild(title);
   const grid=document.createElement('div');grid.className='prepgrid';
   const brake=p.brakeInstruction==='Y'?'Yes':p.brakeInstruction==='N'?'No':p.brakeInstruction||(st.brakeChangeAfter?'After this stint':null);
-  for(const [name,value,wide] of [['Fuel',p.fuel],['Pit strat',p.pitStrategy],['BB',p.bb],['TC',p.tc],['Brake change',brake,true]]){
+  for(const [name,value,wide] of [['Fuel',wholeFuel(p.fuel)],['Pit strat',p.pitStrategy],['BB',p.bb],['TC',p.tc],['Brake change',brake,true]]){
     const item=document.createElement('span');item.textContent=`${name}: ${prepValue(value)}`;if(wide)item.className='prepwide';grid.appendChild(item)
   }
   el.appendChild(grid);
@@ -1240,9 +1242,14 @@ function workbookDriverIdentity(rawName){
   const existing=state.drivers.find(d=>canonicalDriverId(d.id)===id||canonicalDriverId(d.label)===id);
   return existing?{id:existing.id,label:existing.label,existing}:{id,label:DRIVER_LABELS[id]||raw.replace(/\s+/g,' '),existing:null};
 }
+function wholeFuel(value){
+  if(value===undefined||value===null||String(value).trim()==='')return value;
+  const n=Number(value);
+  return Number.isFinite(n)?Math.ceil(n-1e-10):value;
+}
 function prepFromCells(c){
   const setup={bb:c.V,tc:c.W,tc2:c.X,abs:c.Y,frontDuct:c.T,rearDuct:c.U};
-  const stint={fuel:c.Q,fuelPerLap:c.R,serverTemp:c.L,airTemp:c.M,trackTemp:c.N,brakeInstruction:c.S,notes:c.AD,lf:c.Z,rf:c.AA,lr:c.AB,rr:c.AC};
+  const stint={fuel:wholeFuel(c.Q),fuelPerLap:c.R,serverTemp:c.L,airTemp:c.M,trackTemp:c.N,brakeInstruction:c.S,notes:c.AD,lf:c.Z,rf:c.AA,lr:c.AB,rr:c.AC};
   return {setup:Object.fromEntries(Object.entries(setup).filter(([,v])=>v!==undefined&&v!=='')),stint:Object.fromEntries(Object.entries(stint).filter(([,v])=>v!==undefined&&v!==''))};
 }
 function wetSetupsFromWorkbook(book,dryRows){
@@ -1328,7 +1335,7 @@ async function buildMasterPrepWorkbook(file,sourceBook){
     const rows=schedule(),headers=['Order','Stint','Driver','Target laps','Projected IRL start','Projected IRL finish','Projected server start','Projected server finish','Driving time','Preceding pit / changeover','Availability','Server temp','Air temp','Track temp','Load note','Pit Strat #','Fuel (L)','Fuel / lap (L)','Brake change after','Front ducts','Rear ducts','BB','TC','TC2','ABS','LF PSI','RF PSI','LR PSI','RR PSI','Notes'];
     const outputRows=rows.map((row,index)=>{
       const stint=state.stints[index],prep=prepForStint(stint),preceding=index?Number(state.event.pitLossSec||0)+(state.stints[index-1].brakeChangeAfter?BRAKE_CHANGE_EXTRA_SEC:0):0;
-      return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',index+1,prep.fuel||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
+      return [index+1,`Stint ${index+1}`,label(row.driver),row.laps,secToClock(row.start),secToClock(row.finish),secToClock(row.serverStart),secToClock(row.serverFinish),fmtSec(row.drive),preceding,row.availabilityStatus||'',prep.serverTemp||'',prep.airTemp||'',prep.trackTemp||'','',index+1,wholeFuel(prep.fuel)||'',prep.fuelPerLap||'',stint.brakeChangeAfter?'Y':(prep.brakeInstruction||'N'),prep.frontDuct||'',prep.rearDuct||'',prep.bb||'',prep.tc||'',prep.tc2||'',prep.abs||'',prep.lf||'',prep.rf||'',prep.lr||'',prep.rr||'',prep.notes||''];
     });
     const oldPrep=sourceBook.sheets['Stints & Prep']||[];
     const oldByStint=new Map(oldPrep.map(row=>[Number(String(row.cells.B||'').match(/^Stint\s+(\d+)$/i)?.[1]),row]).filter(([number])=>Number.isInteger(number)&&number>0));
@@ -1365,7 +1372,7 @@ async function buildMasterPrepWorkbook(file,sourceBook){
       for(let column=11;column<30;column++){
         if((column>=11&&column<=13)||column===15||column===18||(!sameDriver&&column>=19&&column<=24))continue; // Brake flag is controlled by the app; T:Y are driver setup.
         const value=old.cells[excelColumnName(column)];
-        if(String(value??'').trim())outputRows[index][column]=value;
+        if(String(value??'').trim())outputRows[index][column]=column===16?wholeFuel(value):value;
       }
       if(!sameDriver){
         const baseline=oldByDriver.get(canonicalDriverId(outputRows[index][2]));
@@ -1375,6 +1382,7 @@ async function buildMasterPrepWorkbook(file,sourceBook){
         }
       }
     }
+    outputRows.forEach(row=>{row[16]=wholeFuel(row[16])||''});
     const zip=await window.JSZip.loadAsync(await file.arrayBuffer());
     const workbookPart=zip.file('xl/workbook.xml'),relationshipsPart=zip.file('xl/_rels/workbook.xml.rels');
     if(!workbookPart||!relationshipsPart)throw new Error('The selected file is not a valid Race Pack workbook.');
@@ -1732,6 +1740,7 @@ function render(){
       ?`PIT / CHANGEOVER — ${label(r?.driver)} starts in ${fmtSec(Math.max(0,(r?.startElapsed||0)-elapsed))}`
       :phase==='FINISHED'?'RACE FINISHED'
       :`${phase} — elapsed ${fmtSec(elapsed)} • ${label(r?.driver)} • stint ${cur+1}${state.runtime.autoAdvanceSuppressedIndex===state.runtime.currentIndex?' • AUTO ADVANCE PAUSED':''}${edit?' • future stints editable':''}`;
+    if(!shared.code)liveBanner.textContent='LOCAL ONLY - NOT SHARED | '+liveBanner.textContent;
   }
   for(const [prefix,idx] of [['current',cur],['next',cur+1],['following',cur+2]]){
     const r=sch[idx];
@@ -1981,6 +1990,7 @@ async function addStint(){
 
 async function startCountdown(){
   if(!canEdit()||state.runtime.status!=='PRE-RACE') return;
+  if(!await confirmValidatedStart('countdown'))return;
   const sec=Number(state.runtime.countdownSec)||120;
 
   // Pre-start only: official race elapsed/server timing stays at zero until this reaches zero.
@@ -2117,12 +2127,25 @@ async function serverResync(){
     : 'Server timing resynced in local mode.');
 }
 
+async function confirmValidatedStart(action){
+  const result=validateAndRenderPlan();
+  if(result.errors.length){
+    $('#planningPanel').open=true;
+    toast(`Schedule invalid: ${result.errors[0]} See Planning / Availability.`,9000);
+    return false;
+  }
+  const warning=result.warnings.length
+    ? `Schedule has ${result.warnings.length} warning(s):\n${result.warnings.slice(0,4).map(x=>'• '+x).join('\n')}${result.warnings.length>4?'\n• More in Planning / Availability':''}\n\n`
+    : '';
+  const local=!shared.code?'LOCAL ONLY: This clock will not sync with teammates until you create a shared race.\n\n':'';
+  return !!(await modalAsk({title:action==='countdown'?'Start countdown?':'Start race?',text:`${warning}${local}${action==='countdown'?'Begin the pre-race countdown?':`Start the ${state.event.raceHours} hour race clock now?`}`,ok:action==='countdown'?'START COUNTDOWN':'START RACE'}));
+}
 async function startRace(auto=false){
   if(!canEdit()||state.runtime.status!=='PRE-RACE')return;
-  if(!auto){
-    const ok=await modalAsk({title:'Start race?',text:`Start the ${state.event.raceHours} hour race clock now? This records the actual IRL start time for everyone.`,ok:'START RACE'});
-    if(!ok)return;
-  }
+  if(auto){
+    const validation=validateSchedulePlan();
+    if(validation.errors.length){state.runtime.countdownActive=false;state.runtime.countdownEndsAtMs=null;saveLocal();render();toast('Countdown stopped: schedule is now invalid.',9000);return}
+  }else if(!await confirmValidatedStart('race'))return;
   state.runtime.status='LIVE';state.runtime.currentIndex=0;state.runtime.startedAtMs=Date.now();
   state.runtime.startClockSec=localClockSecNow();state.runtime.countdownEndsAtMs=null;state.runtime.countdownActive=false;
   state.runtime.serverAnchorElapsedSec=0;
@@ -2475,6 +2498,7 @@ async function pollShared(){
       const endedCode=shared.code,eventKey=state.event?.eventKey;
       await unsubscribeShared();
       clearSharedConnection({forgetKey:true});
+      resetEndedSharedRace(endedCode);
       setSyncStatus('LOCAL');render();
       toast(`Session ${endedCode} ended. Waiting for its replacement.`,6000);
       startSessionDiscovery(eventKey);
@@ -2526,8 +2550,8 @@ async function joinSession(code){
     const data=await supa(`dacc_race_sessions?select=code,state,updated_at&code=eq.${enc}&is_active=eq.true&limit=1`);
     const row=Array.isArray(data)?data[0]:null;
     if(!row){
-      if(localStorage.getItem('dacc-session-code')===code)localStorage.removeItem('dacc-session-code');
-      setSyncStatus('LOCAL');toast('Active race session not found.');return;
+      if(localStorage.getItem('dacc-session-code')===code){localStorage.removeItem('dacc-session-code');resetEndedSharedRace(code)}
+      setSyncStatus('LOCAL');toast('Active race session not found.');render();return;
     }
     shared.code=row.code;localStorage.setItem('dacc-session-code',shared.code);
     const stored=localStorage.getItem(`dacc-control-key:${shared.code}`)||'';
@@ -2638,6 +2662,12 @@ function downloadRaceBackup(filename='dacc-race-state.json'){
   const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
   a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function resetEndedSharedRace(code){
+  if(state.runtime.status==='PRE-RACE')return;
+  try{localStorage.setItem(`dacc-ended-race:${code}`,JSON.stringify(state))}catch(err){console.warn('Ended race snapshot could not be saved',err)}
+  resetRaceRuntime();
+  saveLocal();
 }
 function resetRaceRuntime(){
   const old=state.runtime||{};
