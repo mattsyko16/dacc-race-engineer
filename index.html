@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.31</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.32</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -96,7 +96,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           </div>
 
           <div class="drivercards">
-            <div class="drivercard active"><div class="role">Current</div><div class="name" id="currentDriver">—</div><div class="meta" id="currentMeta"></div><div id="currentBrakeWarn" class="brakewarn hidden">⚠ CHANGE BRAKES AT END OF THIS STINT</div></div>
+            <div class="drivercard active"><div class="role">Current</div><div class="name" id="currentDriver">—</div><div class="meta" id="currentMeta"></div><div id="currentBrakeWarn" class="brakewarn hidden">⚠ CHANGE BRAKES AT END OF THIS STINT</div><div class="prepsummary" id="currentPrep">No setup data entered in workbook.</div></div>
             <div class="drivercard"><div class="role">Next</div><div class="name" id="nextDriver">—</div><div class="meta" id="nextMeta"></div><div id="nextBrakeWarn" class="brakewarn hidden">⚠ CHANGE BRAKES AT END OF THIS STINT</div><div class="prepsummary" id="nextPrep">No setup data entered in workbook.</div></div>
             <div class="drivercard"><div class="role">Following</div><div class="name" id="followingDriver">—</div><div class="meta" id="followingMeta"></div></div>
           </div>
@@ -339,7 +339,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.31 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.32 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -1088,12 +1088,13 @@ function setSlotTemperatures(st,values){
   }
 }
 function prepValue(v){return v===undefined||v===null||v===''?'—':String(v)}
-function renderNextPrep(st){
-  const el=$('#nextPrep'),wasOpen=!!el.querySelector('details')?.open;el.replaceChildren();
-  if(!st){el.textContent='No next stint.';return}
+function renderStintPrep(st,targetId,titleText,openByIndex){
+  const el=$('#'+targetId),index=st?state.stints.indexOf(st):-1,wasOpen=openByIndex.get(index)===true;
+  el.replaceChildren();el.dataset.prepIndex=String(index);
+  if(!st){el.textContent=targetId==='currentPrep'?'No current stint.':'No next stint.';return}
   const p=prepForStint(st);
   if(!Object.keys(p).length&&!st.brakeChangeAfter){el.textContent='No setup data entered in workbook.';return}
-  const title=document.createElement('strong');title.textContent='NEXT DRIVER PREP';el.appendChild(title);
+  const title=document.createElement('strong');title.textContent=titleText;el.appendChild(title);
   const grid=document.createElement('div');grid.className='prepgrid';
   const brake=p.brakeInstruction==='Y'?'Yes':p.brakeInstruction==='N'?'No':p.brakeInstruction||(st.brakeChangeAfter?'After this stint':null);
   for(const [name,value,wide] of [['Fuel',wholeFuel(p.fuel)],['Pit strat',p.pitStrategy],['BB',p.bb],['TC',p.tc],['Brake change',brake,true]]){
@@ -1114,6 +1115,15 @@ function renderNextPrep(st){
     const line=document.createElement('div');line.className='prepline';line.textContent=`${name}: ${prepValue(p[key])}`;details.appendChild(line)
   }
   details.open=wasOpen;el.appendChild(details);
+}
+function renderDriverPreps(cur){
+  const openByIndex=new Map();
+  for(const id of ['currentPrep','nextPrep']){
+    const el=$('#'+id),index=Number(el.dataset.prepIndex);
+    if(Number.isInteger(index)&&index>=0)openByIndex.set(index,!!el.querySelector('details')?.open);
+  }
+  renderStintPrep(state.stints[cur],'currentPrep','CURRENT DRIVER PREP',openByIndex);
+  renderStintPrep(state.stints[cur+1],'nextPrep','NEXT DRIVER PREP',openByIndex);
 }
 function renderWetSetups(){
   const container=$('#wetSetupsList'),options=state.prep?.wetSetups||[];
@@ -1792,7 +1802,7 @@ function render(){
   const nextBrakeOn=!!sch[cur+1]?.brakeChangeAfter;
   $('#currentBrakeWarn').classList.toggle('hidden',!currentBrakeOn);
   $('#nextBrakeWarn').classList.toggle('hidden',!nextBrakeOn);
-  renderNextPrep(state.stints[cur+1]);
+  renderDriverPreps(cur);
   renderWetSetups();
   const source=state.prep?.source;
   $('#prepMeta').textContent=source?`Published ${source.name} • ${source.sheet} • ${source.matched} stints • ${new Date(source.refreshedAt).toLocaleString()}`:'No workbook prep published.';
