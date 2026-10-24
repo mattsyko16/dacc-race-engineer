@@ -80,7 +80,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.34</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.35</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -341,7 +341,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.34 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.35 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -2685,6 +2685,9 @@ async function joinSession(code){
     applyRemote(row.state,row.updated_at);
     localStorage.removeItem('dacc-pending-event-key');
     await subscribeShared();
+    // An unlocked controller may have been away while planned handovers passed.
+    // Record every due boundary as soon as the shared state is loaded.
+    maintainLiveRace();
     render();
   }catch(err){console.error(err);setSyncStatus('OFFLINE');toast(`Could not join race: ${err.message}`)}
 }
@@ -3001,16 +3004,27 @@ setInterval(()=>{
   updateRaceClocks(schedule(),elapsedRaceSec(nowMs));
 },250);
 
-// Main race UI refresh.
-setInterval(()=>{
-  if(['LIVE','PAUSED'].includes(state.runtime.status)){
-    if(canEdit()&&state.runtime.status==='LIVE'&&raceRemainingSec()<=0){
-      state.runtime.status='FINISHED';addLog('Race countdown reached zero — FINISHED',false);commitState();
-    }
-    else if(catchUpDueStints())return;
-    if(!/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName||''))render();
+function maintainLiveRace(){
+  if(state.runtime.status!=='LIVE')return false;
+  // Record planned handovers before declaring the race finished. This also
+  // catches up all overdue stints after sleep, a closed tab, or reconnect.
+  const advanced=catchUpDueStints();
+  if(canEdit()&&state.runtime.status==='LIVE'&&raceRemainingSec()<=0){
+    state.runtime.status='FINISHED';addLog('Race countdown reached zero — FINISHED',false);commitState();render();
+    return true;
   }
-},1000);
+  return advanced;
+}
+function refreshLiveRace(){
+  if(!['LIVE','PAUSED'].includes(state.runtime.status))return;
+  if(maintainLiveRace())return;
+  if(!/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName||''))render();
+}
+// Main race UI refresh. Browser timers can be throttled in the background;
+// focus and visibility checks promptly reconcile the plan when the page wakes.
+setInterval(refreshLiveRace,1000);
+window.addEventListener('focus',refreshLiveRace);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLiveRace()});
 
 
 function isIOS(){
@@ -3159,6 +3173,5 @@ await initShared();render();
 
 </body>
 </html>
-
 
 
