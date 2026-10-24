@@ -78,7 +78,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.30</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.31</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -295,7 +295,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="sidegrid">
             <div class="field"><label>IRL race start</label><input id="irlStart" type="time"/></div>
             <div class="field"><label>Server start time</label><input id="serverStart" type="time" step="1"/></div>
-            <div class="field"><label>Server time multiplier</label><input id="serverTimeMultiplier" type="number" min="0.25" max="60" step="0.25" inputmode="decimal"/><div class="sub">Server clock speed: 1× normal, 2× accelerated. Changes apply when you leave this field; race remaining stays in real time.</div></div>
+            <div class="field"><label>Server time multiplier</label><input id="serverTimeMultiplier" type="number" min="0.25" max="60" step="0.25" inputmode="decimal"/><div class="sub">Server clock speed: 1× normal, 2× accelerated. Click Recalculate schedule to apply this and other Race Settings changes. Race remaining stays in real time.</div></div>
             <div class="field"><label>Pit loss (sec)</label><input id="pitLossSec" type="number" step="1"/></div>
             <div class="field"><label>Race hours</label><input id="raceHours" type="number" step="1"/></div>
             <div class="field"><label>Planning avg lap (sec)</label><input id="planAvgLapSec" type="number" step=".1"/></div>
@@ -339,7 +339,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.30 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.31 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -2876,10 +2876,10 @@ function recalculateRaceSettings(){
   }
   raceSettingIds.forEach(id=>delete $('#'+id).dataset.dirty);
   addLog(startChanged||multiplierChanged?`Server timing updated: start ${newServerStart}, time multiplier ×${newServerMultiplier}; current/future projections recalculated`:'Schedule recalculated',false);commitState();render();
+  $('#recalcBtn').textContent='Recalculate schedule';
   if(multiplierChanged)toast(`Server clock now runs at ×${newServerMultiplier}; current and future server times updated.`,6000);
 }
-raceSettingIds.forEach(id=>$('#'+id).addEventListener('input',()=>{$('#'+id).dataset.dirty='1'}));
-$('#serverTimeMultiplier').addEventListener('change',recalculateRaceSettings);
+raceSettingIds.forEach(id=>$('#'+id).addEventListener('input',()=>{$('#'+id).dataset.dirty='1';$('#recalcBtn').textContent='Recalculate schedule (apply changes)'}));
 $('#recalcBtn').onclick=recalculateRaceSettings;
 $('#saveBtn').onclick=()=>{commitState();$('#saveBtn').textContent='Saved ✓';setTimeout(()=>$('#saveBtn').textContent='Save',900)};
 $('#exportBtn').onclick=()=>downloadRaceBackup();
