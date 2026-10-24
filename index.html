@@ -1801,8 +1801,7 @@ function render(){
 
   const actualSelect=$('#actualStartStintSelect');
   const previousCurrent=Number(actualSelect.dataset.current);
-  const followedCurrent=actualSelect.dataset.ready==='1'&&Number(actualSelect.value)===previousCurrent;
-  const selectedActual=actualSelect.dataset.ready==='1'&&!followedCurrent?Number(actualSelect.value):state.runtime.status==='LIVE'&&cur>0?cur-1:cur;
+  const selectedActual=actualSelect.dataset.ready==='1'&&cur===previousCurrent?Number(actualSelect.value):state.runtime.status==='LIVE'&&cur>0?cur-1:cur;
   actualSelect.innerHTML=sch.slice(0,cur+1).map((r,i)=>`<option value="${i}">Stint ${i+1} • ${escapeHtml(label(r.driver))}${i===cur?' • CURRENT':' • COMPLETED'}</option>`).join('');
   actualSelect.value=Number.isInteger(selectedActual)&&selectedActual>=0&&selectedActual<=cur?String(selectedActual):String(cur);
   actualSelect.dataset.ready='1';actualSelect.dataset.current=String(cur);
