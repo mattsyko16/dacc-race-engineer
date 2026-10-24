@@ -36,6 +36,8 @@ h1{font-size:18px;margin:0}.sub{color:var(--muted);font-size:12px}
 .drivercard{background:linear-gradient(180deg,#1a2230,#151b25);border:1px solid var(--line);border-radius:11px;padding:11px}
 .drivercard.active{outline:2px solid var(--accent)} .drivercard .role{color:var(--muted);font-size:11px;text-transform:uppercase}
 .drivercard .name{font-size:20px;font-weight:800;margin:3px 0}.drivercard .meta{color:#cbd5e5;font-size:12px;line-height:1.55;white-space:pre-line}
+.drivercardhead{display:flex;align-items:center;justify-content:space-between;gap:8px}.drivercardhead .name{min-width:0;overflow-wrap:anywhere}.preptoggle{display:none}.preptoggle[hidden]{display:none!important}
+@media(max-width:760px){.drivercard .prepsummary{display:none}.drivercard .prepsummary[data-prep-expanded="true"]{display:block}.preptoggle{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:120px;min-height:56px;padding:9px 14px;background:#315ecf;border-color:#4777e8;font-size:15px;font-weight:800;line-height:1.1}}
 .actualquick{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding:9px;border:1px solid var(--line);border-radius:10px;background:#101722}.actualquick .actualquicktitle{margin-right:auto;min-width:150px}.actualquick select{min-width:190px}.actualquick button{white-space:nowrap}@media(max-width:760px){.actualquick{align-items:stretch}.actualquick .actualquicktitle{flex:1 0 100%}.actualquick select{flex:1 0 100%;width:100%;min-height:46px;font-size:16px}.actualquick button{flex:1 1 145px}}
 .toolbar{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
 button{border:1px solid var(--line);background:#1b2330;color:var(--text);padding:8px 10px;border-radius:9px;cursor:pointer}
@@ -78,7 +80,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.32</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.33</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -96,8 +98,8 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           </div>
 
           <div class="drivercards">
-            <div class="drivercard active"><div class="role">Current</div><div class="name" id="currentDriver">—</div><div class="meta" id="currentMeta"></div><div id="currentBrakeWarn" class="brakewarn hidden">⚠ CHANGE BRAKES AT END OF THIS STINT</div><div class="prepsummary" id="currentPrep">No setup data entered in workbook.</div></div>
-            <div class="drivercard"><div class="role">Next</div><div class="name" id="nextDriver">—</div><div class="meta" id="nextMeta"></div><div id="nextBrakeWarn" class="brakewarn hidden">⚠ CHANGE BRAKES AT END OF THIS STINT</div><div class="prepsummary" id="nextPrep">No setup data entered in workbook.</div></div>
+            <div class="drivercard active"><div class="role">Current</div><div class="drivercardhead"><div class="name" id="currentDriver">—</div><button class="preptoggle" id="currentPrepToggle" type="button" aria-controls="currentPrep" aria-expanded="false">Show prep</button></div><div class="meta" id="currentMeta"></div><div id="currentBrakeWarn" class="brakewarn hidden">⚠ CHANGE BRAKES AT END OF THIS STINT</div><div class="prepsummary" id="currentPrep" data-prep-expanded="false">No setup data entered in workbook.</div></div>
+            <div class="drivercard"><div class="role">Next</div><div class="drivercardhead"><div class="name" id="nextDriver">—</div><button class="preptoggle" id="nextPrepToggle" type="button" aria-controls="nextPrep" aria-expanded="false">Show prep</button></div><div class="meta" id="nextMeta"></div><div id="nextBrakeWarn" class="brakewarn hidden">⚠ CHANGE BRAKES AT END OF THIS STINT</div><div class="prepsummary" id="nextPrep" data-prep-expanded="false">No setup data entered in workbook.</div></div>
             <div class="drivercard"><div class="role">Following</div><div class="name" id="followingDriver">—</div><div class="meta" id="followingMeta"></div></div>
           </div>
 
@@ -339,7 +341,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.32 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.33 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -1117,13 +1119,29 @@ function renderStintPrep(st,targetId,titleText,openByIndex){
   details.open=wasOpen;el.appendChild(details);
 }
 function renderDriverPreps(cur){
-  const openByIndex=new Map();
+  const openByIndex=new Map(),visibleByIndex=new Map();
   for(const id of ['currentPrep','nextPrep']){
     const el=$('#'+id),index=Number(el.dataset.prepIndex);
-    if(Number.isInteger(index)&&index>=0)openByIndex.set(index,!!el.querySelector('details')?.open);
+    if(Number.isInteger(index)&&index>=0){
+      openByIndex.set(index,!!el.querySelector('details')?.open);
+      visibleByIndex.set(index,el.dataset.prepExpanded==='true');
+    }
   }
   renderStintPrep(state.stints[cur],'currentPrep','CURRENT DRIVER PREP',openByIndex);
   renderStintPrep(state.stints[cur+1],'nextPrep','NEXT DRIVER PREP',openByIndex);
+  setPrepVisibility('currentPrep',visibleByIndex.get(cur)===true);
+  setPrepVisibility('nextPrep',visibleByIndex.get(cur+1)===true);
+}
+function setPrepVisibility(targetId,expanded){
+  const el=$('#'+targetId),button=$('#'+(targetId==='currentPrep'?'currentPrepToggle':'nextPrepToggle'));
+  button.hidden=Number(el.dataset.prepIndex)<0;
+  el.dataset.prepExpanded=String(expanded);
+  button.textContent=expanded?'Hide prep':'Show prep';
+  button.setAttribute('aria-expanded',String(expanded));
+}
+function togglePrep(targetId){
+  const el=$('#'+targetId);
+  setPrepVisibility(targetId,el.dataset.prepExpanded!=='true');
 }
 function renderWetSetups(){
   const container=$('#wetSetupsList'),options=state.prep?.wetSetups||[];
@@ -2843,6 +2861,8 @@ $('#replanFutureBtn').onclick=()=>generateAutomaticSchedule(true);
 $('#validateScheduleBtn').onclick=()=>{readPlanningInputs();commitState();validateAndRenderPlan();toast('Schedule validation updated.')};
 $('#exportPrepBtn').onclick=updateMasterPrepWorkbook;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
+$('#currentPrepToggle').onclick=()=>togglePrep('currentPrep');
+$('#nextPrepToggle').onclick=()=>togglePrep('nextPrep');
 $('#actualStartStintSelect').onchange=()=>{const i=Number($('#actualStartStintSelect').value),cur=effectiveCurrentIndex();$('#quickActualNowBtn').disabled=state.runtime.status!=='LIVE'||(i!==cur&&i!==cur-1);$('#quickActualNowBtn').textContent=i===cur-1?'FINISH NOW (previous)':'FINISH NOW (handover)';};
 $('#quickActualStartBtn').onclick=()=>editActualStart(Number($('#actualStartStintSelect').value));
 $('#quickActualFinishBtn').onclick=()=>editActualFinish(Number($('#actualStartStintSelect').value));
