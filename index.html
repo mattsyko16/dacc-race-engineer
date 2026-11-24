@@ -1712,14 +1712,15 @@ function renderPlanningControls(){
 // AI discussion stays on this device; only an explicitly applied schedule enters shared state.
 let raceAiHistory=[];
 let raceAiProposal=null;
+let raceAiEventKey='';
 function raceAiContext(){
   const rows=schedule();
   return {
     event:{round:state.event.round,track:state.event.track,irlStart:state.event.irlStart,raceHours:state.event.raceHours,avgLapSec:state.event.avgLapSec,pitLossSec:state.event.pitLossSec},
     status:state.runtime.status,currentIndex:state.runtime.currentIndex,
-    drivers:state.drivers.map(d=>({id:d.id,name:d.label,availability:state.planning.availability[d.id]||[],rules:state.planning.driverRules[d.id]||{}})),
+    drivers:state.drivers.map(d=>({id:d.id,name:d.label,availability:(state.planning.availability[d.id]||[]).map(w=>({startUK:secToClock(+w.start),endUK:secToClock(+w.end),status:w.status})),rules:state.planning.driverRules[d.id]||{}})),
     planning:{targetStintMinutes:state.planning.targetStintMinutes,maxDriveMinutes:state.planning.maxDriveMinutes,minRestMinutes:state.planning.minRestMinutes,minUsefulStintMinutes:state.planning.minUsefulStintMinutes,maxConsecutive:state.planning.maxConsecutive,allowDouble:state.planning.allowDouble,starter:state.planning.starter,finisher:state.planning.finisher},
-    stints:rows.map((r,i)=>({number:i+1,driverId:r.driver,laps:r.laps,start:secToClock(r.start),finish:secToClock(r.finish),locked:!!r.locked,availability:r.availabilityStatus})),
+    stints:rows.map((r,i)=>({number:i+1,driverId:r.driver,laps:r.laps,startUK:secToClock(r.start),finishUK:secToClock(r.finish),startElapsedSec:r.startElapsed,finishElapsedSec:r.finishElapsed,locked:!!r.locked,availability:r.availabilityStatus})),
     validation:validateSchedulePlan()
   };
 }
@@ -1746,6 +1747,8 @@ function showRaceAiProposal(driverIds){
 async function askRaceAi(){
   const question=$('#raceAiQuestion').value.trim(),accessKey=$('#raceAiKey').value;
   if(!question||!accessKey){toast('Enter a question and the AI access key.');return}
+  const eventKey=state.event.eventKey||`${state.event.round||''}|${state.event.track||''}|${state.event.irlStart||''}`;
+  if(raceAiEventKey!==eventKey){raceAiHistory=[];raceAiProposal=null;raceAiEventKey=eventKey}
   const root=isDiscordActivityHost()?`${location.origin}/supabase`:String(cfg.supabaseUrl||'').replace(/\/+$/,'');
   if(!root){toast('Shared server configuration is missing.');return}
   const button=$('#raceAiAskBtn');button.disabled=true;button.textContent='Thinking…';
