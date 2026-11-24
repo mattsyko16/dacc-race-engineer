@@ -80,7 +80,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
 <div class="shell">
   <div class="topbar">
     <div class="brand"><div class="logo" id="eventCarBadge">48</div><div><h1>DACC Race Engineer</h1><div class="sub" id="eventTitle">Loading…</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.35</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="badge">V5.4.36</span><span class="badge" id="modeBadge">Standalone</span><span class="badge" id="syncBadge">LOCAL</span><span class="badge" id="roleBadge">RACE CONTROL</span><span class="badge" id="statusBadge">PRE-RACE</span><button class="badge" id="headerJoinCodeBtn" disabled>Join code —</button><button id="notifyBtn">Enable notifications</button><button id="saveBtn">Save</button><button id="exportBtn">Export JSON</button><label class="badge" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept=".json" hidden></label></div>
   </div>
 
   <div class="grid">
@@ -205,6 +205,17 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
           <div class="planstatus"><span id="planStatus" class="statuspill">Not checked</span><span class="sub" id="planSource">Availability not imported.</span></div>
           <div id="planMessages" class="planmessages"></div>
           <div id="constraintGuide" class="constraintguide"></div>
+          <details class="coveragepanel" id="askAiPanel"><summary>Ask AI about this schedule</summary>
+            <div class="cardbody" style="padding:12px 0">
+              <div class="sub">Discuss options using this event's roster, availability, rules and stint plan. Suggestions are checked before Race Control can apply them.</div>
+              <div class="field" style="margin-top:10px"><label>AI access key (Race Control only)</label><input id="raceAiKey" type="password" autocomplete="off" placeholder="Enter the key set in Supabase"></div>
+              <div id="raceAiConversation" class="planmessages" style="white-space:pre-wrap;max-height:300px;overflow:auto;margin-top:10px">Ask about a driver swap, rest period or alternative stint order.</div>
+              <div class="field" style="margin-top:10px"><label>Your question</label><textarea id="raceAiQuestion" rows="3" placeholder="Could we move Stu later and keep everyone within availability?"></textarea></div>
+              <div class="toolbar"><button id="raceAiAskBtn">Ask AI</button></div>
+              <div id="raceAiProposal" class="planmessages hidden" style="white-space:pre-wrap"></div>
+              <div class="toolbar"><button id="raceAiApplyBtn" class="primary hidden">Apply suggested order</button></div>
+            </div>
+          </details>
           <details class="coveragepanel" id="coveragePanel"><summary>Hour-by-hour availability <span id="coverageSummary"></span></summary><div id="coverageGrid"></div></details>
           <div id="driverPlanning" class="driverplanning"></div>
           <div class="sub" style="margin-top:10px">Lock individual stints in the main schedule before regenerating. Completed and current stints are always preserved during a live race.</div>
@@ -341,7 +352,7 @@ footer{color:var(--muted);font-size:11px;padding:12px 2px 0}
       </section>
     </aside>
   </div>
-  <footer>DACC Race Engineer V5.4.35 • shared race timing, planning, and prep.</footer>
+  <footer>DACC Race Engineer V5.4.36 • shared race timing, planning, and prep.</footer>
 </div>
 
 <script>
@@ -1698,6 +1709,64 @@ function renderPlanningControls(){
   for(const id of ['planTargetMin','planMaxDriveMin','planMinRestMin','planMinStintMin','planMaxConsecutive','planAllowDouble']){$('#'+id).disabled=!edit;$('#'+id).onchange=()=>{readPlanningInputs();commitState();render()}}for(const id of ['planStarter','planFinisher'])$('#'+id).disabled=!edit;for(const id of ['generateScheduleBtn','regenerateScheduleBtn','replanFutureBtn','importAvailabilityBtn'])$('#'+id).disabled=!edit;$('#importRosterBtn').disabled=!edit||state.runtime.status!=='PRE-RACE';$('#exportPrepBtn').disabled=!edit||!state.stints.length;
 }
 
+// AI discussion stays on this device; only an explicitly applied schedule enters shared state.
+let raceAiHistory=[];
+let raceAiProposal=null;
+function raceAiContext(){
+  const rows=schedule();
+  return {
+    event:{round:state.event.round,track:state.event.track,irlStart:state.event.irlStart,raceHours:state.event.raceHours,avgLapSec:state.event.avgLapSec,pitLossSec:state.event.pitLossSec},
+    status:state.runtime.status,currentIndex:state.runtime.currentIndex,
+    drivers:state.drivers.map(d=>({id:d.id,name:d.label,availability:state.planning.availability[d.id]||[],rules:state.planning.driverRules[d.id]||{}})),
+    planning:{targetStintMinutes:state.planning.targetStintMinutes,maxDriveMinutes:state.planning.maxDriveMinutes,minRestMinutes:state.planning.minRestMinutes,minUsefulStintMinutes:state.planning.minUsefulStintMinutes,maxConsecutive:state.planning.maxConsecutive,allowDouble:state.planning.allowDouble,starter:state.planning.starter,finisher:state.planning.finisher},
+    stints:rows.map((r,i)=>({number:i+1,driverId:r.driver,laps:r.laps,start:secToClock(r.start),finish:secToClock(r.finish),locked:!!r.locked,availability:r.availabilityStatus})),
+    validation:validateSchedulePlan()
+  };
+}
+function checkRaceAiProposal(driverIds){
+  if(!Array.isArray(driverIds)||driverIds.length!==state.stints.length||!driverIds.length)return {errors:['The suggestion does not cover every existing stint.'],warnings:[]};
+  const allowed=new Set(state.drivers.map(d=>d.id));
+  if(driverIds.some(id=>!allowed.has(id)))return {errors:['The suggestion includes a driver outside the selected event roster.'],warnings:[]};
+  const protectedCount=state.runtime.status==='PRE-RACE'?0:state.runtime.currentIndex+1;
+  for(let i=0;i<driverIds.length;i++)if((i<protectedCount||state.stints[i].locked)&&driverIds[i]!==state.stints[i].driver)return {errors:[`Stint ${i+1} is current, completed or locked and cannot change.`],warnings:[]};
+  const original=state.stints;
+  try{state.stints=original.map((st,i)=>({...st,driver:driverIds[i]}));return validateSchedulePlan()}
+  finally{state.stints=original}
+}
+function showRaceAiProposal(driverIds){
+  raceAiProposal=null;$('#raceAiApplyBtn').classList.add('hidden');
+  const box=$('#raceAiProposal');box.classList.add('hidden');
+  if(!Array.isArray(driverIds)||!driverIds.length)return;
+  const validation=checkRaceAiProposal(driverIds);
+  const changes=driverIds.map((id,i)=>id!==state.stints[i]?.driver?`Stint ${i+1}: ${label(state.stints[i].driver)} → ${label(id)}`:null).filter(Boolean);
+  box.textContent=`Suggested order: ${changes.length?changes.join(' • '):'No driver changes'}\n${validation.errors.length?'INVALID':validation.warnings.length?'WARNINGS':'VALID'}${[...validation.errors,...validation.warnings].length?'\n'+[...validation.errors,...validation.warnings].join('\n'):''}`;
+  box.classList.remove('hidden');
+  if(!validation.errors.length&&changes.length){raceAiProposal={driverIds,signature:plannerSignature(),warnings:validation.warnings};$('#raceAiApplyBtn').classList.remove('hidden');$('#raceAiApplyBtn').disabled=!canEdit()}
+}
+async function askRaceAi(){
+  const question=$('#raceAiQuestion').value.trim(),accessKey=$('#raceAiKey').value;
+  if(!question||!accessKey){toast('Enter a question and the AI access key.');return}
+  const root=isDiscordActivityHost()?`${location.origin}/supabase`:String(cfg.supabaseUrl||'').replace(/\/+$/,'');
+  if(!root){toast('Shared server configuration is missing.');return}
+  const button=$('#raceAiAskBtn');button.disabled=true;button.textContent='Thinking…';
+  try{
+    const response=await fetch(`${root}/functions/v1/race-planning-ai`,{method:'POST',headers:{'Content-Type':'application/json','apikey':String(cfg.supabaseAnonKey||cfg.supabasePublishableKey||''),'x-race-ai-key':accessKey},body:JSON.stringify({question,context:raceAiContext(),history:raceAiHistory}),cache:'no-store'});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||`AI service HTTP ${response.status}`);
+    raceAiHistory.push(`Q: ${question}`,`A: ${result.answer}`);raceAiHistory=raceAiHistory.slice(-6);
+    $('#raceAiConversation').textContent=raceAiHistory.join('\n\n');$('#raceAiQuestion').value='';
+    showRaceAiProposal(result.driverIds);
+  }catch(error){toast(`Ask AI: ${error.message}`,7000)}
+  finally{button.disabled=false;button.textContent='Ask AI'}
+}
+async function applyRaceAiProposal(){
+  const proposal=raceAiProposal;if(!proposal||!canEdit())return;
+  if(proposal.signature!==plannerSignature()){showRaceAiProposal(proposal.driverIds);toast('The plan changed. Review the suggestion again.');return}
+  const validation=checkRaceAiProposal(proposal.driverIds);
+  if(validation.errors.length){showRaceAiProposal(proposal.driverIds);toast('The suggested order no longer passes validation.');return}
+  if(validation.warnings.length){const ok=await modalAsk({title:'Apply with warnings?',text:validation.warnings.slice(0,4).join('\n'),ok:'Apply order'});if(!ok)return}
+  state.stints=state.stints.map((st,i)=>({...st,driver:proposal.driverIds[i],driverSetupOverride:proposal.driverIds[i]===st.driver?st.driverSetupOverride:{}}));
+  raceAiProposal=null;$('#raceAiApplyBtn').classList.add('hidden');addLog('AI suggested stint order applied after validation',false);commitState();render();toast('Suggested order applied. Update Master Prep Sheet when ready.');
+}
 let lastScheduleFailure=null;
 function plannerSignature(){
   const p=state.planning,e=state.event,r=state.runtime;
@@ -2913,6 +2982,8 @@ $('#generateScheduleBtn').onclick=()=>generateAutomaticSchedule(false);
 $('#regenerateScheduleBtn').onclick=()=>generateAutomaticSchedule(state.runtime.status!=='PRE-RACE');
 $('#replanFutureBtn').onclick=()=>generateAutomaticSchedule(true);
 $('#validateScheduleBtn').onclick=()=>{readPlanningInputs();commitState();validateAndRenderPlan();toast('Schedule validation updated.')};
+$('#raceAiAskBtn').onclick=askRaceAi;
+$('#raceAiApplyBtn').onclick=applyRaceAiProposal;
 $('#exportPrepBtn').onclick=updateMasterPrepWorkbook;
 $('#addIncidentBtn').onclick=addIncident;$('#saveIncidentsBtn').onclick=saveIncidentsCSV;$('#clearIncidentInputBtn').onclick=()=>{$('#incidentText').value='';};
 $('#currentPrepToggle').onclick=()=>togglePrep('currentPrep');
@@ -3173,5 +3244,6 @@ await initShared();render();
 
 </body>
 </html>
+
 
 
